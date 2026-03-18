@@ -1,0 +1,42 @@
+@baseUrl = https://localhost:7199
+@apiKey = test-api-key-123
+
+### Get Products
+GET {{baseUrl}}/api/products
+X-API-KEY: {{apiKey}}
+
+### Create Order
+POST {{baseUrl}}/api/orders
+X-API-KEY: {{apiKey}}
+Content-Type: application/json
+
+{
+  "partnerOrderId": "ORDER-001",
+  "deliveryMethod": 0,
+  "items": [
+    {
+      "partnerSku": "PARTNER1-SKU-001",
+      "quantity": 2
+    },
+    {
+      "partnerSku": "PARTNER1-SKU-002",
+      "quantity": 1
+    }
+  ],
+  "shippingAddress": "123 Main St, City, State 12345"
+}
+
+### Get Order Status
+GET {{baseUrl}}/api/orders/ORDER-001
+X-API-KEY: {{apiKey}}
+
+### Cancel Order
+POST {{baseUrl}}/api/orders/cancel
+X-API-KEY: {{apiKey}}
+Content-Type: application/json
+
+{
+  "partnerOrderId": "ORDER-001"
+}
+
+###
