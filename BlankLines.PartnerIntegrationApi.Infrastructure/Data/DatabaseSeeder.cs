@@ -1,3 +1,4 @@
+using BlankLines.PartnerIntegrationApi.Application.Services;
 using BlankLines.PartnerIntegrationApi.Domain.Entities;
 using BlankLines.PartnerIntegrationApi.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -17,7 +18,7 @@ public static class DatabaseSeeder
         {
             Id = Guid.NewGuid(),
             Name = "Test Partner 1",
-            ApiKey = "test-api-key-123",
+            ApiKey = PartnerService.HashApiKey("test-api-key-123"),
             CreatedAt = DateTime.UtcNow
         };
 
@@ -25,7 +26,7 @@ public static class DatabaseSeeder
         {
             Id = Guid.NewGuid(),
             Name = "Test Partner 2",
-            ApiKey = "test-api-key-456",
+            ApiKey = PartnerService.HashApiKey("test-api-key-456"),
             CreatedAt = DateTime.UtcNow
         };
 

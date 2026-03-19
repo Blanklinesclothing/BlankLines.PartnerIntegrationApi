@@ -12,7 +12,7 @@ Partners authenticate via API key and can place orders against BlankLines produc
 - **Entity Framework Core** with **PostgreSQL** (Npgsql)
 - **ShopifySharp** — Shopify Admin API integration
 - **Cloudflare R2** — Design file storage (S3-compatible)
-- **Scalar** — OpenAPI documentation UI (served at `/scalar/v1`)
+- **Scalar** — OpenAPI documentation
 
 ## Architecture
 
@@ -52,7 +52,8 @@ Fill in your values in `appsettings.Development.json` (or user secrets):
     "AccessKeyId": "your-r2-access-key-id",
     "SecretAccessKey": "your-r2-secret-access-key",
     "BucketName": "your-bucket-name",
-    "PublicUrlBase": "https://your-public-domain-or-r2-url"
+    "PublicUrlBase": "https://your-public-domain-or-r2-url",
+    "UploadFolder": "partner-designs"
   }
 }
 ```
@@ -63,17 +64,15 @@ Fill in your values in `appsettings.Development.json` (or user secrets):
 dotnet run --project BlankLines.PartnerIntegrationApi.Api
 ```
 
-The database is migrated automatically on startup. In the development environment, seed data is also applied.
+The database is migrated automatically on startup. In development, seed data is also applied.
 
 ### API Docs
 
-The interactive Scalar API reference is available at:
+The interactive API reference is publicly available at:
 
-```
-https://localhost:{port}/scalar/v1
-```
+**https://api.blanklines.com/scalar/v1**
 
-This is available in all environments. Share the deployed URL with partners so they can explore the API interactively.
+When running locally it is also available at `https://localhost:{port}/scalar/v1`.
 
 ## Authentication
 
@@ -83,7 +82,7 @@ All `/api/*` endpoints require the `X-API-KEY` header:
 X-API-KEY: <partner-api-key>
 ```
 
-Keys are provisioned per partner. An invalid or missing key returns `401 Unauthorized`.
+Keys are provisioned per partner. Contact [hello@blanklines.com](mailto:hello@blanklines.com) to request credentials. An invalid or missing key returns `401 Unauthorized`.
 
 ## Endpoints
 
@@ -109,7 +108,7 @@ Keys are provisioned per partner. An invalid or missing key returns `401 Unautho
 | `deliveryMethod` | string | Yes | `Shipping` or `Pickup` |
 | `itemsJson` | string (JSON) | Yes | `[{"partnerSku":"SKU","quantity":1}]` |
 | `customerJson` | string (JSON) | Yes | `{"firstName":"Jane","lastName":"Doe","email":"..."}` |
-| `shippingAddressJson` | string (JSON) | When shipping | Address object — see partner docs |
+| `shippingAddressJson` | string (JSON) | When shipping | Required when `deliveryMethod` is `Shipping` |
 | `designFile` | file | No | Image file — JPEG, PNG, WebP, or GIF |
 
 #### Order statuses
@@ -128,7 +127,7 @@ GET /health
 
 ## Design Files
 
-An optional design image can be attached at order creation via the `designFile` form field. Accepted formats: JPEG, PNG, WebP, GIF. The file is stored in Cloudflare R2 under `partner-designs/{partnerOrderId}.{ext}`.
+An optional design image can be attached at order creation via the `designFile` form field. Accepted formats: JPEG, PNG, WebP, GIF. The file is stored in Cloudflare R2 under `{UploadFolder}/{partnerOrderId}.{ext}`.
 
 ## Database Migrations
 
@@ -146,6 +145,7 @@ dotnet ef database update \
 
 ## Partner Documentation
 
-The full partner-facing API reference is at [`docs/partner-api-reference.md`](docs/partner-api-reference.md).
+The API reference is publicly hosted at:
+**https://api.blanklines.com/scalar/v1**
 
-For the live interactive version, share the `/scalar/v1` URL of your deployed instance with partners.
+For integration support contact [hello@blanklines.com](mailto:hello@blanklines.com).

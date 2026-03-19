@@ -24,13 +24,13 @@ builder.Services.AddOpenApi(options =>
                 The BlankLines Partner Integration API allows approved partners to submit and manage
                 fulfilment orders processed through the BlankLines Shopify store.
 
-                All `/api/*` endpoints require an `X-API-KEY` header. Contact integrations@blanklines.co.uk
+                All `/api/*` endpoints require an `X-API-KEY` header. Contact hello@blanklines.com
                 to request credentials.
                 """,
             Contact = new OpenApiContact
             {
-                Name = "BlankLines Integrations",
-                Email = "integrations@blanklines.co.uk"
+                Name = "BlankLines",
+                Email = "hello@blanklines.com"
             }
         };
 
