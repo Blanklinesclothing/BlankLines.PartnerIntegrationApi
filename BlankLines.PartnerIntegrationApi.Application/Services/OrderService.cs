@@ -11,15 +11,27 @@ public class OrderService : IOrderService
 {
     private readonly IApplicationDbContext _context;
     private readonly IShopifyApiService _shopifyService;
+    private readonly IStorageService _storageService;
 
-    public OrderService(IApplicationDbContext context, IShopifyApiService shopifyService)
+    private static readonly HashSet<string> AllowedImageTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg", "image/png", "image/webp", "image/gif"
+    };
+
+    public OrderService(IApplicationDbContext context, IShopifyApiService shopifyService, IStorageService storageService)
     {
         _context = context;
         _shopifyService = shopifyService;
+        _storageService = storageService;
     }
 
     public async Task<string> CreateOrderAsync(Guid partnerId, CreateOrderRequest request)
     {
+        if (request.DesignFile != null && !AllowedImageTypes.Contains(request.DesignFile.ContentType))
+        {
+            throw new InvalidOperationException("Design file must be an image (JPEG, PNG, WebP, or GIF)");
+        }
+
         var existingOrder = await _context.Orders
             .FirstOrDefaultAsync(o => o.PartnerId == partnerId && o.PartnerOrderId == request.PartnerOrderId);
 
@@ -80,6 +92,15 @@ public class OrderService : IOrderService
         foreach (var item in orderItems)
         {
             item.OrderId = order.Id;
+        }
+
+        if (request.DesignFile != null)
+        {
+            order.DesignFileUrl = await _storageService.UploadDesignAsync(
+                request.PartnerOrderId,
+                request.DesignFile.Content,
+                request.DesignFile.ContentType,
+                request.DesignFile.Extension);
         }
 
         var shopifyOrderId = await _shopifyService.CreateOrderAsync(order);

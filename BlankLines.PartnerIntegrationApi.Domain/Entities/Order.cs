@@ -22,5 +22,6 @@ public class Order
     public string? ShippingCountry { get; set; }
     public string? ShippingZip { get; set; }
     public string? ShippingPhone { get; set; }
+    public string? DesignFileUrl { get; set; }
     public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
 }

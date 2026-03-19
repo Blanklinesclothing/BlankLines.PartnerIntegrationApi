@@ -24,6 +24,9 @@ public static class DependencyInjection
 
         services.AddShopifySharp<LeakyBucketExecutionPolicy>();
 
+        services.Configure<R2Options>(configuration.GetSection("R2"));
+        services.AddScoped<IStorageService, R2StorageService>();
+
         services.AddScoped<IShopifyApiService, ShopifyApiService>();
 
         return services;
