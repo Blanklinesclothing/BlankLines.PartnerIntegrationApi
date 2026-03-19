@@ -7,4 +7,5 @@ public class R2Options
     public required string SecretAccessKey { get; set; }
     public required string BucketName { get; set; }
     public required string PublicUrlBase { get; set; }
+    public string UploadFolder { get; set; } = "test-partner-designs";
 }

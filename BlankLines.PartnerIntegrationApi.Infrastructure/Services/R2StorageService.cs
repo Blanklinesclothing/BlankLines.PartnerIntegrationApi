@@ -11,7 +11,6 @@ public class R2StorageService : IStorageService
 {
     private readonly R2Options _options;
     private readonly AmazonS3Client _client;
-    private const string DesignFolder = "partner-designs";
 
     public R2StorageService(IOptions<R2Options> options)
     {
@@ -21,7 +20,7 @@ public class R2StorageService : IStorageService
 
     public async Task<string> UploadDesignAsync(string partnerOrderId, Stream fileStream, string contentType, string fileExtension)
     {
-        var key = $"{DesignFolder}/{partnerOrderId}{fileExtension}";
+        var key = $"{_options.UploadFolder}/{partnerOrderId}{fileExtension}";
 
         var request = new PutObjectRequest
         {
