@@ -1,0 +1,454 @@
+{
+  "info": {
+    "name": "BlankLines Partner Integration API",
+    "description": "Collection for testing all endpoints of the BlankLines Partner Integration API. Use the `baseUrl` and `apiKey` collection variables to switch between environments.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://localhost:7001",
+      "description": "Base URL of the API. Change to your deployed URL when testing against staging or production."
+    },
+    {
+      "key": "apiKey",
+      "value": "test-api-key-123",
+      "description": "Partner API key. Use test-api-key-123 (Partner 1) or test-api-key-456 (Partner 2) against the dev seed data."
+    },
+    {
+      "key": "partnerOrderId",
+      "value": "PO-{{$randomInt}}",
+      "description": "A unique order ID from your system. Randomised by default to avoid duplicate order errors."
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Returns the health status of the API. Does not require authentication."
+          },
+          "response": [
+            {
+              "name": "Healthy",
+              "status": "OK",
+              "code": 200,
+              "body": "Healthy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "List Products",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-KEY",
+                "value": "{{apiKey}}",
+                "description": "Your partner API key"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products"]
+            },
+            "description": "Returns all products available to order from the BlankLines Shopify store."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "[\n  {\n    \"id\": \"8765432100123\",\n    \"title\": \"Classic Tank – Black\",\n    \"variants\": [\n      {\n        \"id\": \"49420784042305\",\n        \"title\": \"Small\",\n        \"sku\": \"M106GV100-S\",\n        \"price\": \"25.00\"\n      }\n    ]\n  }\n]"
+            },
+            {
+              "name": "401 Unauthorized – missing key",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{ \"error\": \"API key is missing\" }"
+            },
+            {
+              "name": "401 Unauthorized – invalid key",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{ \"error\": \"Invalid API key\" }"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Create Order (Shipping, no design file)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Response contains orderId\", () => pm.expect(json.orderId).to.be.a('string'));",
+                  "pm.collectionVariables.set(\"partnerOrderId\", json.partnerOrderId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-KEY",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "partnerOrderId",
+                  "value": "PO-{{$randomInt}}",
+                  "type": "text",
+                  "description": "Your unique order reference"
+                },
+                {
+                  "key": "deliveryMethod",
+                  "value": "Shipping",
+                  "type": "text",
+                  "description": "Shipping or Pickup"
+                },
+                {
+                  "key": "itemsJson",
+                  "value": "[{\"partnerSku\":\"PARTNER1-TANK-BLACK\",\"quantity\":1}]",
+                  "type": "text",
+                  "description": "JSON array of order items"
+                },
+                {
+                  "key": "customerJson",
+                  "value": "{\"firstName\":\"Jane\",\"lastName\":\"Doe\",\"email\":\"jane@example.com\",\"phone\":\"+44 7700 000000\"}",
+                  "type": "text",
+                  "description": "JSON object with customer details"
+                },
+                {
+                  "key": "shippingAddressJson",
+                  "value": "{\"firstName\":\"Jane\",\"lastName\":\"Doe\",\"address1\":\"123 High Street\",\"city\":\"London\",\"country\":\"GB\",\"zip\":\"SW1A 1AA\"}",
+                  "type": "text",
+                  "description": "JSON object with shipping address. Required when deliveryMethod is Shipping."
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders"]
+            },
+            "description": "Submit a new order with delivery method Shipping. No design file attached."
+          }
+        },
+        {
+          "name": "Create Order (Shipping, with design file)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Response contains orderId\", () => pm.expect(json.orderId).to.be.a('string'));",
+                  "pm.collectionVariables.set(\"partnerOrderId\", json.partnerOrderId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-KEY",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "partnerOrderId",
+                  "value": "PO-DESIGN-{{$randomInt}}",
+                  "type": "text"
+                },
+                {
+                  "key": "deliveryMethod",
+                  "value": "Shipping",
+                  "type": "text"
+                },
+                {
+                  "key": "itemsJson",
+                  "value": "[{\"partnerSku\":\"PARTNER1-TANK-WHITE\",\"quantity\":2}]",
+                  "type": "text"
+                },
+                {
+                  "key": "customerJson",
+                  "value": "{\"firstName\":\"John\",\"lastName\":\"Smith\",\"email\":\"john@example.com\"}",
+                  "type": "text"
+                },
+                {
+                  "key": "shippingAddressJson",
+                  "value": "{\"firstName\":\"John\",\"lastName\":\"Smith\",\"address1\":\"456 Park Lane\",\"city\":\"Manchester\",\"country\":\"GB\",\"zip\":\"M1 1AE\"}",
+                  "type": "text"
+                },
+                {
+                  "key": "designFile",
+                  "type": "file",
+                  "src": [],
+                  "description": "Image file (JPEG, PNG, WebP, or GIF). Select a file from your machine."
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders"]
+            },
+            "description": "Submit a new order and attach a design file. Supported formats: JPEG, PNG, WebP, GIF."
+          }
+        },
+        {
+          "name": "Create Order (Pickup)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-KEY",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "partnerOrderId",
+                  "value": "PO-PICKUP-{{$randomInt}}",
+                  "type": "text"
+                },
+                {
+                  "key": "deliveryMethod",
+                  "value": "Pickup",
+                  "type": "text"
+                },
+                {
+                  "key": "itemsJson",
+                  "value": "[{\"partnerSku\":\"PARTNER1-TANK-BLACK\",\"quantity\":1}]",
+                  "type": "text"
+                },
+                {
+                  "key": "customerJson",
+                  "value": "{\"firstName\":\"Alice\",\"lastName\":\"Jones\",\"email\":\"alice@example.com\"}",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders"]
+            },
+            "description": "Submit a Pickup order. shippingAddressJson is not required."
+          }
+        },
+        {
+          "name": "Get Order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Has status field\", () => pm.expect(json.status).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-KEY",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{partnerOrderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "{{partnerOrderId}}"]
+            },
+            "description": "Retrieve the status of an order by your partner order ID. Run 'Create Order' first to populate the `partnerOrderId` variable."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"partnerOrderId\": \"PO-12345\",\n  \"shopifyOrderId\": \"5678901234\",\n  \"status\": \"Received\",\n  \"createdAt\": \"2026-03-18T10:00:00Z\"\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{ \"error\": \"Order 'PO-12345' not found\" }"
+            }
+          ]
+        },
+        {
+          "name": "Cancel Order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-KEY",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"partnerOrderId\": \"{{partnerOrderId}}\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "cancel"]
+            },
+            "description": "Cancel an order within 24 hours of submission."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "status": "No Content",
+              "code": 204,
+              "body": ""
+            },
+            {
+              "name": "400 Cancellation window passed",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{ \"error\": \"Order cannot be cancelled after 24 hours\" }"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{ \"error\": \"Order 'PO-12345' not found\" }"
+            }
+          ]
+        },
+        {
+          "name": "Create Order – 400 Invalid SKU",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-KEY",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "partnerOrderId", "value": "PO-ERR-{{$randomInt}}", "type": "text" },
+                { "key": "deliveryMethod", "value": "Shipping", "type": "text" },
+                { "key": "itemsJson", "value": "[{\"partnerSku\":\"DOES-NOT-EXIST\",\"quantity\":1}]", "type": "text" },
+                { "key": "customerJson", "value": "{\"firstName\":\"Test\",\"lastName\":\"User\",\"email\":\"test@example.com\"}", "type": "text" },
+                { "key": "shippingAddressJson", "value": "{\"firstName\":\"Test\",\"lastName\":\"User\",\"address1\":\"1 Test St\",\"city\":\"London\",\"country\":\"GB\",\"zip\":\"E1 1AA\"}", "type": "text" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders"]
+            },
+            "description": "Negative test – submits a SKU that does not belong to the partner. Expect 400."
+          }
+        },
+        {
+          "name": "Create Order – 400 Invalid design file type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-KEY",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "partnerOrderId", "value": "PO-BADFILE-{{$randomInt}}", "type": "text" },
+                { "key": "deliveryMethod", "value": "Shipping", "type": "text" },
+                { "key": "itemsJson", "value": "[{\"partnerSku\":\"PARTNER1-TANK-BLACK\",\"quantity\":1}]", "type": "text" },
+                { "key": "customerJson", "value": "{\"firstName\":\"Test\",\"lastName\":\"User\",\"email\":\"test@example.com\"}", "type": "text" },
+                { "key": "shippingAddressJson", "value": "{\"firstName\":\"Test\",\"lastName\":\"User\",\"address1\":\"1 Test St\",\"city\":\"London\",\"country\":\"GB\",\"zip\":\"E1 1AA\"}", "type": "text" },
+                {
+                  "key": "designFile",
+                  "type": "file",
+                  "src": [],
+                  "description": "Select a non-image file (e.g. a .pdf or .txt) to trigger the 400 response."
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders"]
+            },
+            "description": "Negative test – attach a non-image file. Expect 400."
+          }
+        }
+      ]
+    }
+  ]
+}
