@@ -1,11 +1,15 @@
 using BlankLines.PartnerIntegrationApi.Application.DTOs;
 using BlankLines.PartnerIntegrationApi.Application.Interfaces;
 using BlankLines.PartnerIntegrationApi.Application.Requests;
+using BlankLines.PartnerIntegrationApi.Application.Responses;
 using BlankLines.PartnerIntegrationApi.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BlankLines.PartnerIntegrationApi.Api.Controllers;
 
+/// <summary>
+/// Manage partner orders.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class OrdersController : ControllerBase
@@ -22,8 +26,26 @@ public class OrdersController : ControllerBase
         _orderService = orderService;
     }
 
+    /// <summary>
+    /// Submit a new order for fulfilment.
+    /// </summary>
+    /// <remarks>
+    /// Sends the order to the BlankLines Shopify store for fulfilment.
+    /// The request must be sent as <c>multipart/form-data</c>.
+    /// An optional design image (JPEG, PNG, WebP, or GIF) can be attached via the <c>designFile</c> field.
+    /// <c>shippingAddressJson</c> is required when <c>deliveryMethod</c> is <c>Shipping</c>.
+    /// </remarks>
+    /// <param name="partnerOrderId">Your unique order reference.</param>
+    /// <param name="deliveryMethod"><c>Shipping</c> or <c>Pickup</c>.</param>
+    /// <param name="itemsJson">JSON array of order items: <c>[{"partnerSku":"SKU-001","quantity":1}]</c></param>
+    /// <param name="customerJson">JSON object with customer details: firstName, lastName, email, phone (optional).</param>
+    /// <param name="shippingAddressJson">JSON object with shipping address. Required when deliveryMethod is Shipping.</param>
+    /// <param name="designFile">Optional design image. Accepted formats: JPEG, PNG, WebP, GIF.</param>
     [HttpPost]
     [Consumes("multipart/form-data")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> CreateOrder(
         [FromForm] string partnerOrderId,
         [FromForm] DeliveryMethod deliveryMethod,
@@ -80,7 +102,14 @@ public class OrdersController : ControllerBase
             new { orderId, partnerOrderId = request.PartnerOrderId });
     }
 
+    /// <summary>
+    /// Retrieve the status of an order by your partner order ID.
+    /// </summary>
+    /// <param name="partnerOrderId">The order ID you provided at creation.</param>
     [HttpGet("{partnerOrderId}")]
+    [ProducesResponseType(typeof(OrderResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetOrder(string partnerOrderId)
     {
         var partnerId = GetPartnerId();
@@ -90,7 +119,15 @@ public class OrdersController : ControllerBase
         return Ok(order);
     }
 
+    /// <summary>
+    /// Cancel an order. Orders can only be cancelled within 24 hours of submission.
+    /// </summary>
+    /// <param name="request">The partner order ID to cancel.</param>
     [HttpPost("cancel")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CancelOrder([FromBody] CancelOrderRequest request)
     {
         var partnerId = GetPartnerId();

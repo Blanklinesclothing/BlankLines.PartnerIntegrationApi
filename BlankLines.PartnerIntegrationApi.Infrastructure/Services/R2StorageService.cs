@@ -10,17 +10,17 @@ namespace BlankLines.PartnerIntegrationApi.Infrastructure.Services;
 public class R2StorageService : IStorageService
 {
     private readonly R2Options _options;
+    private readonly AmazonS3Client _client;
     private const string DesignFolder = "partner-designs";
 
     public R2StorageService(IOptions<R2Options> options)
     {
         _options = options.Value;
+        _client = CreateClient();
     }
 
     public async Task<string> UploadDesignAsync(string partnerOrderId, Stream fileStream, string contentType, string fileExtension)
     {
-        var client = CreateClient();
-
         var key = $"{DesignFolder}/{partnerOrderId}{fileExtension}";
 
         var request = new PutObjectRequest
@@ -32,7 +32,7 @@ public class R2StorageService : IStorageService
             DisablePayloadSigning = true
         };
 
-        await client.PutObjectAsync(request);
+        await _client.PutObjectAsync(request);
 
         return $"{_options.PublicUrlBase.TrimEnd('/')}/{key}";
     }

@@ -361,4 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
-/BlankLines.PartnerIntegrationApi.Api/appsettings.Development.json
+
+# Local secrets and environment-specific config — never commit credentials
+appsettings.Development.json
+appsettings.*.local.json
