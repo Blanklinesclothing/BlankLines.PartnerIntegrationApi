@@ -5,4 +5,5 @@ namespace BlankLines.PartnerIntegrationApi.Application.Interfaces;
 public interface IPartnerService
 {
     Task<Partner?> GetPartnerByApiKeyAsync(string apiKey);
+    Task<(Partner Partner, string PlainTextApiKey)> CreatePartnerAsync(string name);
 }

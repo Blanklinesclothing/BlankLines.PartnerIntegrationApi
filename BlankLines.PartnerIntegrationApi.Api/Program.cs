@@ -1,4 +1,5 @@
 using BlankLines.PartnerIntegrationApi.Api.Middleware;
+using BlankLines.PartnerIntegrationApi.Api.Options;
 using BlankLines.PartnerIntegrationApi.Application;
 using BlankLines.PartnerIntegrationApi.Infrastructure;
 using BlankLines.PartnerIntegrationApi.Infrastructure.Data;
@@ -68,7 +69,7 @@ builder.Services.AddOpenApi(options =>
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-
+builder.Services.Configure<AdminOptions>(builder.Configuration.GetSection("Admin"));
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
@@ -104,6 +105,10 @@ app.UseRouting();
 app.UseWhen(
     ctx => ctx.Request.Path.StartsWithSegments("/api"),
     pipeline => pipeline.UseMiddleware<ApiKeyMiddleware>());
+
+app.UseWhen(
+    ctx => ctx.Request.Path.StartsWithSegments("/admin"),
+    pipeline => pipeline.UseMiddleware<AdminKeyMiddleware>());
 
 app.MapControllers();
 

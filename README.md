@@ -1,6 +1,6 @@
 # BlankLines Partner Integration API
 
-A REST API that allows partners to submit and manage orders that are fulfilled through the BlankLines Shopify store.
+A REST API that allows partners to submit and manage orders fulfilled through the BlankLines Shopify store.
 
 ## Overview
 
@@ -12,11 +12,11 @@ Partners authenticate via API key and can place orders against BlankLines produc
 - **Entity Framework Core** with **PostgreSQL** (Npgsql)
 - **ShopifySharp** — Shopify Admin API integration
 - **Cloudflare R2** — Design file storage (S3-compatible)
-- **Scalar** — OpenAPI documentation
+- **Scalar** — OpenAPI documentation UI
 
 ## Architecture
 
-The solution follows a clean architecture layout:
+Clean architecture layout:
 
 | Project | Responsibility |
 |---|---|
@@ -24,6 +24,8 @@ The solution follows a clean architecture layout:
 | `Application` | Services, interfaces, DTOs, request/response models |
 | `Domain` | Entities and enums |
 | `Infrastructure` | EF Core DbContext, Shopify service, R2 storage, migrations |
+
+---
 
 ## Getting Started
 
@@ -35,12 +37,15 @@ The solution follows a clean architecture layout:
 
 ### Configuration
 
-Fill in your values in `appsettings.Development.json` (or user secrets):
+Fill in your values in `appsettings.Development.json` or via [user secrets](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets):
 
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Database=postgres;Username=postgres;Password=yourpassword"
+    "DefaultConnection": "Host=localhost;Database=blanklines;Username=postgres;Password=yourpassword"
+  },
+  "Admin": {
+    "AdminKey": "your-strong-random-admin-key"
   },
   "Shopify": {
     "StoreUrl": "https://your-store.myshopify.com",
@@ -58,13 +63,15 @@ Fill in your values in `appsettings.Development.json` (or user secrets):
 }
 ```
 
+> `appsettings.Development.json` is in `.gitignore` and must never be committed.
+
 ### Run
 
 ```bash
 dotnet run --project BlankLines.PartnerIntegrationApi.Api
 ```
 
-The database is migrated automatically on startup. In development, seed data is also applied.
+The database is migrated automatically on startup. In development, seed data is also applied (two test partners with keys `test-api-key-123` and `test-api-key-456`).
 
 ### API Docs
 
@@ -72,19 +79,35 @@ The interactive API reference is publicly available at:
 
 **https://api.blanklines.com/scalar/v1**
 
-When running locally it is also available at `https://localhost:{port}/scalar/v1`.
+Also available locally at `https://localhost:{port}/scalar/v1` when running in development.
+
+---
 
 ## Authentication
 
-All `/api/*` endpoints require the `X-API-KEY` header:
+### Partner endpoints (`/api/*`)
+
+All partner endpoints require the `X-API-KEY` header:
 
 ```
 X-API-KEY: <partner-api-key>
 ```
 
-Keys are provisioned per partner. Contact [hello@blanklines.com](mailto:hello@blanklines.com) to request credentials. An invalid or missing key returns `401 Unauthorized`.
+Partner API keys are generated via the admin endpoint (see below), stored as SHA-256 hashes in the database, and issued to partners once — they cannot be retrieved again.
 
-## Endpoints
+### Admin endpoints (`/admin/*`)
+
+All admin endpoints require the `X-ADMIN-KEY` header:
+
+```
+X-ADMIN-KEY: <admin-key>
+```
+
+The admin key is a random string stored in the `Admin:AdminKey` config value / environment variable. It never touches the database.
+
+---
+
+## Partner Endpoints
 
 ### Products
 
@@ -125,9 +148,69 @@ Keys are provisioned per partner. Contact [hello@blanklines.com](mailto:hello@bl
 GET /health
 ```
 
+---
+
+## Admin Endpoints
+
+Admin endpoints are excluded from the public API docs and protected by `X-ADMIN-KEY`.
+
+### Create partner
+
+```
+POST /admin/partners
+X-ADMIN-KEY: <admin-key>
+Content-Type: application/json
+
+{ "name": "Acme Clothing" }
+```
+
+**Response — 201 Created**
+
+```json
+{
+  "partnerId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "name": "Acme Clothing",
+  "apiKey": "aB3xK9mP2qR7sT4uV6wY1zA8bC5dE0fG",
+  "createdAt": "2026-03-19T10:00:00Z",
+  "note": "Save this API key — it will not be shown again."
+}
+```
+
+The `apiKey` is generated from a cryptographically secure random source and returned **once only**. Copy it and send it to the partner — it cannot be retrieved again.
+
+---
+
 ## Design Files
 
-An optional design image can be attached at order creation via the `designFile` form field. Accepted formats: JPEG, PNG, WebP, GIF. The file is stored in Cloudflare R2 under `{UploadFolder}/{partnerOrderId}.{ext}`.
+An optional design image can be attached at order creation via the `designFile` form field. Accepted formats: JPEG, PNG, WebP, GIF. Files are stored in Cloudflare R2 under `{R2:UploadFolder}/{partnerOrderId}.{ext}`.
+
+---
+
+## Railway Deployment
+
+Set the following environment variables on your Railway API service:
+
+| Variable | Description |
+|---|---|
+| `ASPNETCORE_ENVIRONMENT` | `Production` |
+| `ConnectionStrings__DefaultConnection` | Composed from Railway Postgres plugin variables |
+| `Admin__AdminKey` | Strong random string — your admin secret |
+| `Shopify__StoreUrl` | Shopify store URL |
+| `Shopify__AccessToken` | Shopify Admin API access token |
+| `Shopify__ApiVersion` | e.g. `2026-01` |
+| `R2__AccountId` | Cloudflare account ID |
+| `R2__AccessKeyId` | R2 S3-compatible access key |
+| `R2__SecretAccessKey` | R2 S3-compatible secret key |
+| `R2__BucketName` | R2 bucket name |
+| `R2__PublicUrlBase` | Public base URL for uploaded files |
+| `R2__UploadFolder` | `partner-designs` (production) |
+
+**PostgreSQL connection string** (use Railway's variable reference syntax):
+```
+Host=${{Postgres.PGHOST}};Port=${{Postgres.PGPORT}};Database=${{Postgres.PGDATABASE}};Username=${{Postgres.PGUSER}};Password=${{Postgres.PGPASSWORD}}
+```
+
+---
 
 ## Database Migrations
 
@@ -142,6 +225,8 @@ dotnet ef database update \
   --project BlankLines.PartnerIntegrationApi.Infrastructure \
   --startup-project BlankLines.PartnerIntegrationApi.Api
 ```
+
+---
 
 ## Partner Documentation
 
