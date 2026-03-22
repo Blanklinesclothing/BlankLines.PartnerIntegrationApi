@@ -3,27 +3,27 @@ using BlankLines.PartnerIntegrationApi.Application.Requests;
 using BlankLines.PartnerIntegrationApi.Application.Responses;
 using BlankLines.PartnerIntegrationApi.Domain.Entities;
 using BlankLines.PartnerIntegrationApi.Domain.Enums;
+using BlankLines.PartnerIntegrationApi.Domain.Exceptions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace BlankLines.PartnerIntegrationApi.Application.Services;
 
-public class OrderService : IOrderService
+public class OrderService(
+    IApplicationDbContext context,
+    IShopifyApiService shopifyService,
+    IStorageService storageService,
+    ILogger<OrderService> logger) : IOrderService
 {
-    private readonly IApplicationDbContext _context;
-    private readonly IShopifyApiService _shopifyService;
-    private readonly IStorageService _storageService;
+    private readonly IApplicationDbContext _context = context;
+    private readonly IShopifyApiService _shopifyService = shopifyService;
+    private readonly IStorageService _storageService = storageService;
+    private readonly ILogger<OrderService> _logger = logger;
 
     private static readonly HashSet<string> AllowedImageTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "image/jpeg", "image/png", "image/webp", "image/gif"
     };
-
-    public OrderService(IApplicationDbContext context, IShopifyApiService shopifyService, IStorageService storageService)
-    {
-        _context = context;
-        _shopifyService = shopifyService;
-        _storageService = storageService;
-    }
 
     public async Task<string> CreateOrderAsync(Guid partnerId, CreateOrderRequest request)
     {
@@ -94,20 +94,45 @@ public class OrderService : IOrderService
             item.OrderId = order.Id;
         }
 
-        if (request.DesignFile != null)
-        {
-            order.DesignFileUrl = await _storageService.UploadDesignAsync(
-                request.PartnerOrderId,
-                request.DesignFile.Content,
-                request.DesignFile.ContentType,
-                request.DesignFile.Extension);
-        }
-
-        var shopifyOrderId = await _shopifyService.CreateOrderAsync(order);
-        order.ShopifyOrderId = shopifyOrderId;
-
+        // Step 1 — persist the order immediately so it is never lost
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
+        _logger.LogInformation("Order {PartnerOrderId} created for partner {PartnerId}", order.PartnerOrderId, partnerId);
+
+        // Step 2 — upload design file if provided
+        if (request.DesignFile != null)
+        {
+            try
+            {
+                order.DesignFileUrl = await _storageService.UploadDesignAsync(
+                    request.PartnerOrderId,
+                    request.DesignFile.Content,
+                    request.DesignFile.ContentType,
+                    request.DesignFile.Extension);
+
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Design file uploaded for order {PartnerOrderId}", order.PartnerOrderId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Design file upload failed for order {PartnerOrderId} — order saved, Shopify submission will proceed without design URL", order.PartnerOrderId);
+            }
+        }
+
+        // Step 3 — submit to Shopify and update the order record
+        try
+        {
+            var shopifyOrderId = await _shopifyService.CreateOrderAsync(order);
+            order.ShopifyOrderId = shopifyOrderId;
+            order.Status = OrderStatus.Processing;
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Order {PartnerOrderId} submitted to Shopify as {ShopifyOrderId}", order.PartnerOrderId, shopifyOrderId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Shopify submission failed for order {PartnerOrderId} — order remains in Received status for retry", order.PartnerOrderId);
+            throw new UpstreamServiceException("Shopify", $"Failed to submit order '{request.PartnerOrderId}' to Shopify. The order has been saved and can be retried.", ex);
+        }
 
         return order.Id.ToString();
     }
@@ -148,5 +173,6 @@ public class OrderService : IOrderService
 
         order.Status = OrderStatus.Cancelled;
         await _context.SaveChangesAsync();
+        _logger.LogInformation("Order {PartnerOrderId} cancelled by partner {PartnerId}", request.PartnerOrderId, partnerId);
     }
 }

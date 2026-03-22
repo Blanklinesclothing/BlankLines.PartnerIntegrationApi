@@ -1,3 +1,5 @@
+using BlankLines.PartnerIntegrationApi.Domain.Exceptions;
+
 namespace BlankLines.PartnerIntegrationApi.Api.Middleware;
 
 public class ExceptionHandlingMiddleware
@@ -25,6 +27,12 @@ public class ExceptionHandlingMiddleware
         catch (InvalidOperationException ex)
         {
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(new { error = ex.Message });
+        }
+        catch (UpstreamServiceException ex)
+        {
+            _logger.LogError(ex, "Upstream service failure: {ServiceName}", ex.ServiceName);
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
             await context.Response.WriteAsJsonAsync(new { error = ex.Message });
         }
         catch (Exception ex)

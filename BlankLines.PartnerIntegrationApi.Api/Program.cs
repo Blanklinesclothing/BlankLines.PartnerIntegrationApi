@@ -4,14 +4,45 @@ using BlankLines.PartnerIntegrationApi.Application;
 using BlankLines.PartnerIntegrationApi.Infrastructure;
 using BlankLines.PartnerIntegrationApi.Infrastructure.Data;
 using BlankLines.PartnerIntegrationApi.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Scalar.AspNetCore;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+// Limit multipart uploads to 10 MB
+builder.Services.Configure<FormOptions>(o =>
+{
+    o.MultipartBodyLengthLimit = 10 * 1024 * 1024;
+});
+
+// Rate limiting — 10 requests per minute per partner (keyed by API key header)
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("PerPartner", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Request.Headers["X-API-KEY"].ToString(),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, ct) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsJsonAsync(
+            new { error = "Too many requests. Please slow down and try again shortly." }, ct);
+    };
+});
 
 builder.Services.AddOpenApi(options =>
 {
@@ -102,6 +133,8 @@ app.UseHttpsRedirection();
 
 app.UseRouting();
 
+app.UseRateLimiter();
+
 app.UseWhen(
     ctx => ctx.Request.Path.StartsWithSegments("/api"),
     pipeline => pipeline.UseMiddleware<ApiKeyMiddleware>());
@@ -110,7 +143,8 @@ app.UseWhen(
     ctx => ctx.Request.Path.StartsWithSegments("/admin"),
     pipeline => pipeline.UseMiddleware<AdminKeyMiddleware>());
 
-app.MapControllers();
+app.MapControllers()
+    .RequireRateLimiting("PerPartner");
 
 app.UseHealthChecks("/health");
 

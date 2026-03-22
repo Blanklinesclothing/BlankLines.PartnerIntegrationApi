@@ -1,0 +1,318 @@
+{
+  "info": {
+    "name": "BlankLines Partner Integration API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Collection for the BlankLines Partner Integration API. Set the collection variables before use."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://localhost:7126",
+      "description": "Base URL. Change to https://api.blanklines.com for production."
+    },
+    {
+      "key": "partnerApiKey",
+      "value": "test-api-key-123",
+      "description": "Partner API key sent in X-API-KEY header."
+    },
+    {
+      "key": "adminKey",
+      "value": "",
+      "description": "Admin key sent in X-ADMIN-KEY header."
+    },
+    {
+      "key": "partnerOrderId",
+      "value": "my-order-001",
+      "description": "Reusable partner order reference used across order requests."
+    },
+    {
+      "key": "partnerId",
+      "value": "",
+      "description": "Partner GUID returned by POST /admin/partners. Used in DELETE /admin/partners/:partnerId."
+    }
+  ],
+  "item": [
+    {
+      "name": "Partner",
+      "item": [
+        {
+          "name": "Products",
+          "item": [
+            {
+              "name": "List products",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-API-KEY",
+                    "value": "{{partnerApiKey}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/products",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "products"]
+                },
+                "description": "Returns all products available to order from the BlankLines Shopify store."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Orders",
+          "item": [
+            {
+              "name": "Create order",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-API-KEY",
+                    "value": "{{partnerApiKey}}"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "partnerOrderId",
+                      "value": "{{partnerOrderId}}",
+                      "type": "text",
+                      "description": "Your unique order reference."
+                    },
+                    {
+                      "key": "deliveryMethod",
+                      "value": "Shipping",
+                      "type": "text",
+                      "description": "Shipping or Pickup."
+                    },
+                    {
+                      "key": "itemsJson",
+                      "value": "[{\"partnerSku\":\"PARTNER1-TANK-BLACK\",\"quantity\":1}]",
+                      "type": "text",
+                      "description": "JSON array of order items using your partner SKUs."
+                    },
+                    {
+                      "key": "customerJson",
+                      "value": "{\"firstName\":\"Jane\",\"lastName\":\"Doe\",\"email\":\"jane.doe@example.com\",\"phone\":\"+61400000000\"}",
+                      "type": "text",
+                      "description": "JSON object with customer details."
+                    },
+                    {
+                      "key": "shippingAddressJson",
+                      "value": "{\"firstName\":\"Jane\",\"lastName\":\"Doe\",\"address1\":\"123 Main St\",\"address2\":\"Apt 4\",\"city\":\"Sydney\",\"province\":\"NSW\",\"country\":\"Australia\",\"zip\":\"2000\",\"phone\":\"+61400000000\"}",
+                      "type": "text",
+                      "description": "Required when deliveryMethod is Shipping."
+                    },
+                    {
+                      "key": "designFile",
+                      "type": "file",
+                      "description": "Optional design image. Accepted formats: JPEG, PNG, WebP, GIF. Max 10 MB.",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/orders",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "orders"]
+                },
+                "description": "Submit a new order for fulfilment. Sent as multipart/form-data. Max upload size is 10 MB."
+              },
+              "response": []
+            },
+            {
+              "name": "Get order",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-API-KEY",
+                    "value": "{{partnerApiKey}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/orders/{{partnerOrderId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "orders", "{{partnerOrderId}}"]
+                },
+                "description": "Retrieve the status of an order by your partner order ID."
+              },
+              "response": []
+            },
+            {
+              "name": "Cancel order",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-API-KEY",
+                    "value": "{{partnerApiKey}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"partnerOrderId\": \"{{partnerOrderId}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/orders/cancel",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "orders", "cancel"]
+                },
+                "description": "Cancel an order. Orders can only be cancelled within 24 hours of submission."
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Partners",
+          "item": [
+            {
+              "name": "Create partner",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var json = pm.response.json();",
+                      "if (json.partnerId) {",
+                      "    pm.collectionVariables.set('partnerId', json.partnerId);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-ADMIN-KEY",
+                    "value": "{{adminKey}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Acme Clothing\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/partners",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "partners"]
+                },
+                "description": "Create a new partner. The apiKey in the response is shown once only. The partnerId is saved automatically to the partnerId collection variable."
+              },
+              "response": []
+            },
+            {
+              "name": "List partners",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-ADMIN-KEY",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/partners",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "partners"]
+                },
+                "description": "Returns all active (non-revoked) partners."
+              },
+              "response": []
+            },
+            {
+              "name": "Revoke partner",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "X-ADMIN-KEY",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/partners/{{partnerId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "partners", "{{partnerId}}"]
+                },
+                "description": "Soft-deletes the partner and immediately invalidates their API key. Uses the partnerId collection variable."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Orders",
+          "item": [
+            {
+              "name": "List all orders",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-ADMIN-KEY",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/orders",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "orders"]
+                },
+                "description": "Returns all orders across all partners."
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Returns the health status of the API."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

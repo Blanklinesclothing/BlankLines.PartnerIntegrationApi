@@ -1,3 +1,4 @@
+using BlankLines.PartnerIntegrationApi.Application.DTOs;
 using BlankLines.PartnerIntegrationApi.Application.Interfaces;
 using BlankLines.PartnerIntegrationApi.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -38,6 +39,61 @@ public class PartnerService : IPartnerService
         await _context.SaveChangesAsync();
 
         return (partner, plainTextKey);
+    }
+
+    public async Task<IEnumerable<PartnerDto>> GetAllPartnersAsync()
+    {
+        return await _context.Partners
+            .OrderBy(p => p.Name)
+            .Select(p => new PartnerDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                CreatedAt = p.CreatedAt
+            })
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<AdminOrderDto>> GetAllOrdersAsync()
+    {
+        return await _context.Orders
+            .Join(_context.Partners,
+                o => o.PartnerId,
+                p => p.Id,
+                (o, p) => new AdminOrderDto
+                {
+                    Id = o.Id,
+                    PartnerId = o.PartnerId,
+                    PartnerName = p.Name,
+                    PartnerOrderId = o.PartnerOrderId,
+                    ShopifyOrderId = o.ShopifyOrderId,
+                    Status = o.Status,
+                    DeliveryMethod = o.DeliveryMethod,
+                    CreatedAt = o.CreatedAt
+                })
+            .OrderByDescending(o => o.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task RevokePartnerAsync(Guid partnerId)
+    {
+        var partner = await _context.Partners
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(p => p.Id == partnerId);
+
+        if (partner == null)
+        {
+            throw new KeyNotFoundException($"Partner '{partnerId}' not found");
+        }
+
+        if (partner.IsRevoked)
+        {
+            throw new InvalidOperationException($"Partner '{partner.Name}' is already revoked");
+        }
+
+        partner.IsRevoked = true;
+        partner.RevokedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
     }
 
     public static string HashApiKey(string apiKey)

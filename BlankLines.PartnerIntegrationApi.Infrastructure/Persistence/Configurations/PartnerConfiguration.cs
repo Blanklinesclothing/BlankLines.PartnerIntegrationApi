@@ -23,5 +23,14 @@ public class PartnerConfiguration : IEntityTypeConfiguration<Partner>
 
         builder.Property(p => p.CreatedAt)
             .IsRequired();
+
+        builder.Property(p => p.IsRevoked)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(p => p.RevokedAt);
+
+        // Revoked partners are excluded from all queries automatically
+        builder.HasQueryFilter(p => !p.IsRevoked);
     }
 }

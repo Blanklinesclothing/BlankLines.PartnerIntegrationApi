@@ -6,4 +6,6 @@ public class Partner
     public required string Name { get; set; }
     public required string ApiKey { get; set; }
     public DateTime CreatedAt { get; set; }
+    public bool IsRevoked { get; set; }
+    public DateTime? RevokedAt { get; set; }
 }
