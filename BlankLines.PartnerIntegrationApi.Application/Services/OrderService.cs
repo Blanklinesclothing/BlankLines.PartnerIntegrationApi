@@ -171,7 +171,6 @@ public class OrderService(
             Items = order.Items.Select(i => new OrderItemResponseDto
             {
                 PartnerSku = i.PartnerSku,
-                BaseSku = i.BaseSku,
                 Quantity = i.Quantity
             }).ToList()
         };

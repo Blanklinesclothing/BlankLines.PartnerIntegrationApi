@@ -19,6 +19,5 @@ public class OrderResponse
 public class OrderItemResponseDto
 {
     public required string PartnerSku { get; set; }
-    public required string BaseSku { get; set; }
     public int Quantity { get; set; }
 }
