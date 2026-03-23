@@ -2,7 +2,7 @@
   "info": {
     "name": "BlankLines Partner Integration API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Collection for the BlankLines Partner Integration API. Set the collection variables before use."
+    "description": "Complete Postman collection for the BlankLines Partner Integration API.\n\n**Partner endpoints** (`/api/*`) require the `X-API-KEY` header. Set the `partnerApiKey` collection variable to your key.\n\n**Admin endpoints** (`/admin/*`) require the `X-ADMIN-KEY` header. Set the `adminKey` collection variable.\n\nIn development, seeded test keys are:\n- `test-api-key-123` (Test Partner 1 — has SKUs `PARTNER1-TANK-BLACK` and `PARTNER1-TANK-WHITE`)\n- `test-api-key-456` (Test Partner 2 — has SKU `PARTNER2-TRACKPANT-BLACK`)"
   },
   "variable": [
     {
@@ -39,6 +39,7 @@
   "item": [
     {
       "name": "Partner",
+      "description": "Endpoints available to approved partners. All requests require the X-API-KEY header.",
       "item": [
         {
           "name": "Products",
@@ -58,9 +59,24 @@
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "products"]
                 },
-                "description": "Returns all products available to order from the BlankLines Shopify store. Use the variantId values when registering partner products via the admin endpoints."
+                "description": "Returns all products available to order from the BlankLines Shopify store. Use the `variantId` values when registering partner products via the admin endpoints."
               },
-              "response": []
+              "response": [
+                {
+                  "name": "200 OK",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "[\n  {\n    \"id\": \"shopify-product-id\",\n    \"title\": \"Classic Tank Top\",\n    \"sku\": \"M106GV100-S\",\n    \"variantId\": 49420784042305,\n    \"inventoryQuantity\": 42\n  }\n]"
+                },
+                {
+                  "name": "401 Unauthorized",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"error\": \"API key is missing\"\n}"
+                }
+              ]
             }
           ]
         },
@@ -68,7 +84,23 @@
           "name": "Orders",
           "item": [
             {
-              "name": "Create order",
+              "name": "Create order (Shipping)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 201) {",
+                      "    var json = pm.response.json();",
+                      "    if (json.partnerOrderId) {",
+                      "        pm.collectionVariables.set('partnerOrderId', json.partnerOrderId);",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
               "request": {
                 "method": "POST",
                 "header": [
@@ -114,7 +146,8 @@
                       "key": "designFile",
                       "type": "file",
                       "description": "Optional design image. Accepted formats: JPEG, PNG, WebP, GIF. Max 10 MB.",
-                      "disabled": true
+                      "disabled": true,
+                      "src": []
                     }
                   ]
                 },
@@ -123,9 +156,101 @@
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "orders"]
                 },
-                "description": "Submit a new order for fulfilment. Sent as multipart/form-data. Max upload size is 10 MB."
+                "description": "Submit a new shipping order for fulfilment via `multipart/form-data`. The order is pushed to the BlankLines Shopify store. `shippingAddressJson` is required. An optional design image (JPEG, PNG, WebP, GIF, max 10 MB) may be attached via `designFile`."
               },
-              "response": []
+              "response": [
+                {
+                  "name": "201 Created",
+                  "status": "Created",
+                  "code": 201,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"orderId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"partnerOrderId\": \"my-order-001\"\n}"
+                },
+                {
+                  "name": "400 Bad Request - Invalid input",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"error\": \"Invalid items or customer data\"\n}"
+                },
+                {
+                  "name": "400 Bad Request - Invalid design file type",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"error\": \"Design file must be an image (JPEG, PNG, WebP, or GIF)\"\n}"
+                },
+                {
+                  "name": "401 Unauthorized",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"error\": \"API key is missing\"\n}"
+                },
+                {
+                  "name": "429 Too Many Requests",
+                  "status": "Too Many Requests",
+                  "code": 429,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"error\": \"Too many requests. Please slow down and try again shortly.\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Create order (Pickup)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-API-KEY",
+                    "value": "{{partnerApiKey}}"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "partnerOrderId",
+                      "value": "my-pickup-order-001",
+                      "type": "text",
+                      "description": "Your unique order reference."
+                    },
+                    {
+                      "key": "deliveryMethod",
+                      "value": "Pickup",
+                      "type": "text",
+                      "description": "Shipping or Pickup."
+                    },
+                    {
+                      "key": "itemsJson",
+                      "value": "[{\"partnerSku\":\"PARTNER1-TANK-WHITE\",\"quantity\":2}]",
+                      "type": "text",
+                      "description": "JSON array of order items using your partner SKUs."
+                    },
+                    {
+                      "key": "customerJson",
+                      "value": "{\"firstName\":\"John\",\"lastName\":\"Smith\",\"email\":\"john.smith@example.com\"}",
+                      "type": "text",
+                      "description": "JSON object with customer details. Phone is optional."
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/orders",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "orders"]
+                },
+                "description": "Submit a pickup order. `shippingAddressJson` is not required when `deliveryMethod` is `Pickup`."
+              },
+              "response": [
+                {
+                  "name": "201 Created",
+                  "status": "Created",
+                  "code": 201,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"orderId\": \"4ab96e75-6828-4673-c4gd-3d074g77bgb7\",\n  \"partnerOrderId\": \"my-pickup-order-001\"\n}"
+                }
+              ]
             },
             {
               "name": "Get order",
@@ -144,7 +269,22 @@
                 },
                 "description": "Retrieve full order details including status, customer, shipping address, design file URL, and items."
               },
-              "response": []
+              "response": [
+                {
+                  "name": "200 OK",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"partnerOrderId\": \"my-order-001\",\n  \"shopifyOrderId\": \"5678901234\",\n  \"status\": \"Processing\",\n  \"deliveryMethod\": \"Shipping\",\n  \"createdAt\": \"2026-03-19T10:00:00Z\",\n  \"customer\": {\n    \"firstName\": \"Jane\",\n    \"lastName\": \"Doe\",\n    \"email\": \"jane.doe@example.com\",\n    \"phone\": \"+61400000000\"\n  },\n  \"shippingAddress\": {\n    \"firstName\": \"Jane\",\n    \"lastName\": \"Doe\",\n    \"address1\": \"123 Main St\",\n    \"address2\": \"Apt 4\",\n    \"city\": \"Sydney\",\n    \"province\": \"NSW\",\n    \"country\": \"Australia\",\n    \"zip\": \"2000\",\n    \"phone\": \"+61400000000\"\n  },\n  \"designFileUrl\": \"https://your-public-domain/partner-designs/my-order-001.png\",\n  \"items\": [\n    { \"partnerSku\": \"PARTNER1-TANK-BLACK\", \"quantity\": 1 }\n  ]\n}"
+                },
+                {
+                  "name": "404 Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"error\": \"Order not found\"\n}"
+                }
+              ]
             },
             {
               "name": "Cancel order",
@@ -176,7 +316,56 @@
                 },
                 "description": "Cancel an order. Orders can only be cancelled within 24 hours of submission. If the order has already been submitted to Shopify it will also be cancelled there."
               },
-              "response": []
+              "response": [
+                {
+                  "name": "204 No Content",
+                  "status": "No Content",
+                  "code": 204,
+                  "header": [],
+                  "body": ""
+                },
+                {
+                  "name": "400 Bad Request - Cancellation window expired",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"error\": \"Order cannot be cancelled after 24 hours\"\n}"
+                },
+                {
+                  "name": "404 Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"error\": \"Order not found\"\n}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Health",
+          "item": [
+            {
+              "name": "Health check",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/health",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["health"]
+                },
+                "description": "Returns the health status of the API. No authentication required."
+              },
+              "response": [
+                {
+                  "name": "200 OK - Healthy",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "text/plain" }],
+                  "body": "Healthy"
+                }
+              ]
             }
           ]
         }
@@ -184,7 +373,47 @@
     },
     {
       "name": "Admin",
+      "description": "Internal admin endpoints protected by X-ADMIN-KEY. Not exposed in the public API docs.",
       "item": [
+        {
+          "name": "Orders",
+          "item": [
+            {
+              "name": "List all orders",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-ADMIN-KEY",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/orders",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "orders"]
+                },
+                "description": "Returns all orders across all partners."
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "[\n  {\n    \"id\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n    \"partnerId\": \"a1b2c3d4-0000-0000-0000-000000000001\",\n    \"partnerName\": \"Test Partner 1\",\n    \"partnerOrderId\": \"my-order-001\",\n    \"shopifyOrderId\": \"5678901234\",\n    \"status\": \"Processing\",\n    \"deliveryMethod\": \"Shipping\",\n    \"createdAt\": \"2026-03-19T10:00:00Z\"\n  }\n]"
+                },
+                {
+                  "name": "401 Unauthorized",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"error\": \"Admin key is missing\"\n}"
+                }
+              ]
+            }
+          ]
+        },
         {
           "name": "Partners",
           "item": [
@@ -195,9 +424,11 @@
                   "listen": "test",
                   "script": {
                     "exec": [
-                      "var json = pm.response.json();",
-                      "if (json.partnerId) {",
-                      "    pm.collectionVariables.set('partnerId', json.partnerId);",
+                      "if (pm.response.code === 201) {",
+                      "    var json = pm.response.json();",
+                      "    if (json.partnerId) {",
+                      "        pm.collectionVariables.set('partnerId', json.partnerId);",
+                      "    }",
                       "}"
                     ],
                     "type": "text/javascript"
@@ -230,9 +461,17 @@
                   "host": ["{{baseUrl}}"],
                   "path": ["admin", "partners"]
                 },
-                "description": "Create a new partner. The apiKey in the response is shown once only. The partnerId is saved automatically to the partnerId collection variable."
+                "description": "Create a new partner. The `apiKey` in the response is shown **once only** — copy it and send it to the partner. The `partnerId` is saved automatically to the `partnerId` collection variable."
               },
-              "response": []
+              "response": [
+                {
+                  "name": "201 Created",
+                  "status": "Created",
+                  "code": 201,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"partnerId\": \"a1b2c3d4-0000-0000-0000-000000000001\",\n  \"name\": \"Acme Clothing\",\n  \"apiKey\": \"aB3xK9mP2qR7sT4uV6wY1zA8bC5dE0fG\",\n  \"createdAt\": \"2026-03-19T10:00:00Z\",\n  \"note\": \"Save this API key - it will not be shown again.\"\n}"
+                }
+              ]
             },
             {
               "name": "List partners",
@@ -251,7 +490,15 @@
                 },
                 "description": "Returns all active (non-revoked) partners."
               },
-              "response": []
+              "response": [
+                {
+                  "name": "200 OK",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "[\n  {\n    \"id\": \"a1b2c3d4-0000-0000-0000-000000000001\",\n    \"name\": \"Test Partner 1\",\n    \"createdAt\": \"2026-03-10T12:54:02Z\"\n  },\n  {\n    \"id\": \"a1b2c3d4-0000-0000-0000-000000000002\",\n    \"name\": \"Test Partner 2\",\n    \"createdAt\": \"2026-03-10T12:54:02Z\"\n  }\n]"
+                }
+              ]
             },
             {
               "name": "Revoke partner",
@@ -268,9 +515,24 @@
                   "host": ["{{baseUrl}}"],
                   "path": ["admin", "partners", "{{partnerId}}"]
                 },
-                "description": "Soft-deletes the partner and immediately invalidates their API key. Uses the partnerId collection variable."
+                "description": "Soft-deletes the partner and immediately invalidates their API key. The record is retained in the database for auditing. Uses the `partnerId` collection variable."
               },
-              "response": []
+              "response": [
+                {
+                  "name": "204 No Content",
+                  "status": "No Content",
+                  "code": 204,
+                  "header": [],
+                  "body": ""
+                },
+                {
+                  "name": "404 Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"error\": \"Partner not found\"\n}"
+                }
+              ]
             }
           ]
         },
@@ -294,7 +556,15 @@
                 },
                 "description": "Returns all registered SKU mappings for the partner."
               },
-              "response": []
+              "response": [
+                {
+                  "name": "200 OK",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "[\n  {\n    \"id\": \"a1b2c3d4-0000-0000-0000-000000000010\",\n    \"partnerSku\": \"PARTNER1-TANK-BLACK\",\n    \"baseSku\": \"M106GV100-S\",\n    \"designReference\": \"Design-001\",\n    \"shopifyVariantId\": 49420784042305\n  },\n  {\n    \"id\": \"a1b2c3d4-0000-0000-0000-000000000011\",\n    \"partnerSku\": \"PARTNER1-TANK-WHITE\",\n    \"baseSku\": \"M106GV900-S\",\n    \"designReference\": \"Design-002\",\n    \"shopifyVariantId\": 50366105354561\n  }\n]"
+                }
+              ]
             },
             {
               "name": "Create partner product",
@@ -303,7 +573,92 @@
                   "listen": "test",
                   "script": {
                     "exec": [
-                      "var json = pm.response.json();",
-                      "if (json.id) {",
-                      "    pm.collectionVariables.set('partnerProductId', json.id);",
+                      "if (pm.response.code === 201) {",
+                      "    var json = pm.response.json();",
+                      "    if (json.id) {",
+                      "        pm.collectionVariables.set('partnerProductId', json.id);",
+                      "    }",
                       "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-ADMIN-KEY",
+                    "value": "{{adminKey}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"partnerSku\": \"PARTNER1-TANK-BLACK\",\n  \"baseSku\": \"M106GV100-S\",\n  \"designReference\": \"Design-001\",\n  \"shopifyVariantId\": 49420784042305\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/partners/{{partnerId}}/products",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "partners", "{{partnerId}}", "products"]
+                },
+                "description": "Register a new SKU mapping for a partner. `partnerSku` must be unique per partner. Obtain `shopifyVariantId` from `GET /api/products`. The `partnerProductId` is saved automatically to the `partnerProductId` collection variable."
+              },
+              "response": [
+                {
+                  "name": "201 Created",
+                  "status": "Created",
+                  "code": 201,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"id\": \"a1b2c3d4-0000-0000-0000-000000000010\",\n  \"partnerSku\": \"PARTNER1-TANK-BLACK\",\n  \"baseSku\": \"M106GV100-S\",\n  \"designReference\": \"Design-001\",\n  \"shopifyVariantId\": 49420784042305\n}"
+                }
+              ]
+            },
+            {
+              "name": "Delete partner product",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "X-ADMIN-KEY",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/partners/{{partnerId}}/products/{{partnerProductId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "partners", "{{partnerId}}", "products", "{{partnerProductId}}"]
+                },
+                "description": "Remove a partner product SKU mapping. Uses the `partnerId` and `partnerProductId` collection variables."
+              },
+              "response": [
+                {
+                  "name": "204 No Content",
+                  "status": "No Content",
+                  "code": 204,
+                  "header": [],
+                  "body": ""
+                },
+                {
+                  "name": "404 Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"error\": \"Product not found\"\n}"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
