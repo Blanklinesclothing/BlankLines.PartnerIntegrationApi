@@ -120,7 +120,7 @@ public class ShopifyApiService : IShopifyApiService
                 Phone = order.ShippingPhone
             } : null,
             Note = $"Partner Order ID: {order.PartnerOrderId}" +
-                   string.Concat(order.Items.Select(i => $"\n{i.PartnerSku}: {i.DesignReference}")),
+                   string.Concat(order.Items.Select(i => $"\nPartner SKU: {i.PartnerSku}\nDesign Reference: {i.DesignReference}")),
             Tags = order.DeliveryMethod.ToString(),
             FinancialStatus = "paid"
         };
@@ -133,6 +133,12 @@ public class ShopifyApiService : IShopifyApiService
         }
 
         return createdOrder.Id.Value.ToString();
+    }
+
+    public async Task CancelOrderAsync(long shopifyOrderId)
+    {
+        var orderService = _orderServiceFactory.Create(Credentials);
+        await orderService.CancelAsync(shopifyOrderId);
     }
 
     private record ProductsQueryResult

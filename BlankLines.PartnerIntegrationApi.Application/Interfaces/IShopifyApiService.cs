@@ -7,4 +7,5 @@ public interface IShopifyApiService
 {
     Task<IEnumerable<ProductDto>> GetProductsAsync();
     Task<string> CreateOrderAsync(Order order);
+    Task CancelOrderAsync(long shopifyOrderId);
 }

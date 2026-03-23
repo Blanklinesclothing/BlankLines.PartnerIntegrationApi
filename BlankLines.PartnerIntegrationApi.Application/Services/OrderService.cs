@@ -1,3 +1,4 @@
+using BlankLines.PartnerIntegrationApi.Application.DTOs;
 using BlankLines.PartnerIntegrationApi.Application.Interfaces;
 using BlankLines.PartnerIntegrationApi.Application.Requests;
 using BlankLines.PartnerIntegrationApi.Application.Responses;
@@ -49,13 +50,9 @@ public class OrderService(
         foreach (var item in request.Items)
         {
             var partnerProduct = partnerProducts
-                .FirstOrDefault(pp => pp.PartnerSku == item.PartnerSku);
-
-            if (partnerProduct == null)
-            {
-                throw new InvalidOperationException($"Partner SKU '{item.PartnerSku}' not found");
-            }
-
+                .FirstOrDefault(pp => pp.PartnerSku == item.PartnerSku) 
+                ?? throw new InvalidOperationException($"Partner SKU '{item.PartnerSku}' not found");
+            
             orderItems.Add(new OrderItem
             {
                 Id = Guid.NewGuid(),
@@ -140,19 +137,43 @@ public class OrderService(
     public async Task<OrderResponse> GetOrderAsync(Guid partnerId, string partnerOrderId)
     {
         var order = await _context.Orders
-            .FirstOrDefaultAsync(o => o.PartnerId == partnerId && o.PartnerOrderId == partnerOrderId);
-
-        if (order == null)
-        {
-            throw new KeyNotFoundException($"Order '{partnerOrderId}' not found");
-        }
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o => o.PartnerId == partnerId && o.PartnerOrderId == partnerOrderId)
+            ?? throw new KeyNotFoundException($"Order '{partnerOrderId}' not found");
 
         return new OrderResponse
         {
             PartnerOrderId = order.PartnerOrderId,
             ShopifyOrderId = order.ShopifyOrderId,
             Status = order.Status,
-            CreatedAt = order.CreatedAt
+            DeliveryMethod = order.DeliveryMethod,
+            CreatedAt = order.CreatedAt,
+            Customer = new CustomerDto
+            {
+                FirstName = order.CustomerFirstName,
+                LastName = order.CustomerLastName,
+                Email = order.CustomerEmail,
+                Phone = order.CustomerPhone
+            },
+            ShippingAddress = order.ShippingAddress1 != null ? new ShippingAddressDto
+            {
+                FirstName = order.CustomerFirstName,
+                LastName = order.CustomerLastName,
+                Address1 = order.ShippingAddress1,
+                Address2 = order.ShippingAddress2,
+                City = order.ShippingCity!,
+                Province = order.ShippingProvince,
+                Country = order.ShippingCountry!,
+                Zip = order.ShippingZip!,
+                Phone = order.ShippingPhone
+            } : null,
+            DesignFileUrl = order.DesignFileUrl,
+            Items = order.Items.Select(i => new OrderItemResponseDto
+            {
+                PartnerSku = i.PartnerSku,
+                BaseSku = i.BaseSku,
+                Quantity = i.Quantity
+            }).ToList()
         };
     }
 
@@ -169,6 +190,25 @@ public class OrderService(
         if ((DateTime.UtcNow - order.CreatedAt).TotalHours > 24)
         {
             throw new InvalidOperationException("Order cannot be cancelled after 24 hours");
+        }
+
+        if (order.ShopifyOrderId != null)
+        {
+            if (!long.TryParse(order.ShopifyOrderId, out var shopifyOrderId))
+            {
+                throw new InvalidOperationException($"Order '{request.PartnerOrderId}' has an invalid Shopify order ID");
+            }
+
+            try
+            {
+                await _shopifyService.CancelOrderAsync(shopifyOrderId);
+                _logger.LogInformation("Order {PartnerOrderId} cancelled in Shopify (ShopifyOrderId: {ShopifyOrderId})", request.PartnerOrderId, order.ShopifyOrderId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to cancel order {PartnerOrderId} in Shopify", request.PartnerOrderId);
+                throw new UpstreamServiceException("Shopify", $"Failed to cancel order '{request.PartnerOrderId}' in Shopify.", ex);
+            }
         }
 
         order.Status = OrderStatus.Cancelled;
