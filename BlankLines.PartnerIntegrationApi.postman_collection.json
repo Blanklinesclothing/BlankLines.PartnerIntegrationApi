@@ -28,7 +28,12 @@
     {
       "key": "partnerId",
       "value": "",
-      "description": "Partner GUID returned by POST /admin/partners. Used in DELETE /admin/partners/:partnerId."
+      "description": "Partner GUID. Auto-populated by POST /admin/partners. Used in partner product and revoke requests."
+    },
+    {
+      "key": "partnerProductId",
+      "value": "",
+      "description": "Partner product GUID. Auto-populated by POST /admin/partners/:partnerId/products. Used in DELETE."
     }
   ],
   "item": [
@@ -53,7 +58,7 @@
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "products"]
                 },
-                "description": "Returns all products available to order from the BlankLines Shopify store."
+                "description": "Returns all products available to order from the BlankLines Shopify store. Use the variantId values when registering partner products via the admin endpoints."
               },
               "response": []
             }
@@ -137,7 +142,7 @@
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "orders", "{{partnerOrderId}}"]
                 },
-                "description": "Retrieve the status of an order by your partner order ID."
+                "description": "Retrieve full order details including status, customer, shipping address, design file URL, and items."
               },
               "response": []
             },
@@ -169,7 +174,7 @@
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "orders", "cancel"]
                 },
-                "description": "Cancel an order. Orders can only be cancelled within 24 hours of submission."
+                "description": "Cancel an order. Orders can only be cancelled within 24 hours of submission. If the order has already been submitted to Shopify it will also be cancelled there."
               },
               "response": []
             }
@@ -270,10 +275,10 @@
           ]
         },
         {
-          "name": "Orders",
+          "name": "Partner Products",
           "item": [
             {
-              "name": "List all orders",
+              "name": "List partner products",
               "request": {
                 "method": "GET",
                 "header": [
@@ -283,36 +288,22 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/admin/orders",
+                  "raw": "{{baseUrl}}/admin/partners/{{partnerId}}/products",
                   "host": ["{{baseUrl}}"],
-                  "path": ["admin", "orders"]
+                  "path": ["admin", "partners", "{{partnerId}}", "products"]
                 },
-                "description": "Returns all orders across all partners."
+                "description": "Returns all registered SKU mappings for the partner."
               },
               "response": []
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Health",
-      "item": [
-        {
-          "name": "Health check",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/health",
-              "host": ["{{baseUrl}}"],
-              "path": ["health"]
             },
-            "description": "Returns the health status of the API."
-          },
-          "response": []
-        }
-      ]
-    }
-  ]
-}
+            {
+              "name": "Create partner product",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var json = pm.response.json();",
+                      "if (json.id) {",
+                      "    pm.collectionVariables.set('partnerProductId', json.id);",
+                      "}"

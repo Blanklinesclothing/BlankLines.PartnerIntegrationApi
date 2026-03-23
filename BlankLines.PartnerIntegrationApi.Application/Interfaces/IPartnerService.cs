@@ -1,4 +1,5 @@
 using BlankLines.PartnerIntegrationApi.Application.DTOs;
+using BlankLines.PartnerIntegrationApi.Application.Requests;
 using BlankLines.PartnerIntegrationApi.Domain.Entities;
 
 namespace BlankLines.PartnerIntegrationApi.Application.Interfaces;
@@ -14,4 +15,10 @@ public interface IPartnerService
     Task<IEnumerable<AdminOrderDto>> GetAllOrdersAsync();
 
     Task RevokePartnerAsync(Guid partnerId);
+
+    Task<IEnumerable<PartnerProductDto>> GetPartnerProductsAsync(Guid partnerId);
+
+    Task<PartnerProductDto> CreatePartnerProductAsync(Guid partnerId, CreatePartnerProductRequest request);
+
+    Task DeletePartnerProductAsync(Guid partnerId, Guid productId);
 }
