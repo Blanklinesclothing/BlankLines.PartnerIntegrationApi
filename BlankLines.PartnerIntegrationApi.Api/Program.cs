@@ -26,7 +26,7 @@ builder.Services.Configure<FormOptions>(o =>
     o.MultipartBodyLengthLimit = 10 * 1024 * 1024;
 });
 
-// Rate limiting — 10 requests per minute per partner (keyed by API key header)
+// Rate limiting - 10 requests per minute per partner (keyed by API key header)
 builder.Services.AddRateLimiter(options =>
 {
     options.AddPolicy("PerPartner", httpContext =>

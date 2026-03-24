@@ -1,0 +1,279 @@
+{
+  "info": {
+    "name": "BlankLines Partner Integration API - Admin",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Admin endpoints for the BlankLines Partner Integration API.\n\nAll requests require the `X-ADMIN-KEY` header. Set the `adminKey` collection variable before use.\n\n> Partner endpoints (`/api/*`) are covered by the OpenAPI spec at `/openapi/v1.json`. Import that into Postman directly for the partner collection."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://localhost:7126",
+      "description": "Base URL. Change to https://api.blanklines.com for production."
+    },
+    {
+      "key": "adminKey",
+      "value": "",
+      "description": "Admin key sent in X-ADMIN-KEY header. Set this before use."
+    },
+    {
+      "key": "partnerId",
+      "value": "",
+      "description": "Partner GUID. Auto-populated by Create Partner."
+    },
+    {
+      "key": "partnerProductId",
+      "value": "",
+      "description": "Partner product GUID. Auto-populated by Create Partner Product."
+    }
+  ],
+  "item": [
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "List all orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-ADMIN-KEY", "value": "{{adminKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "orders"]
+            },
+            "description": "Returns all orders across all partners."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "[\n  {\n    \"id\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n    \"partnerId\": \"a1b2c3d4-0000-0000-0000-000000000001\",\n    \"partnerName\": \"Test Partner 1\",\n    \"partnerOrderId\": \"my-order-001\",\n    \"shopifyOrderId\": \"5678901234\",\n    \"status\": \"Processing\",\n    \"deliveryMethod\": \"Shipping\",\n    \"createdAt\": \"2026-03-19T10:00:00Z\"\n  }\n]"
+            },
+            {
+              "name": "401 Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Admin key is missing\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Partners",
+      "item": [
+        {
+          "name": "Create partner",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.partnerId) {",
+                  "        pm.collectionVariables.set('partnerId', json.partnerId);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-ADMIN-KEY", "value": "{{adminKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Clothing\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/partners",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "partners"]
+            },
+            "description": "Create a new partner. The `apiKey` in the response is shown **once only** - copy it and send it to the partner. The `partnerId` is saved automatically to the `partnerId` collection variable."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"partnerId\": \"a1b2c3d4-0000-0000-0000-000000000001\",\n  \"name\": \"Acme Clothing\",\n  \"apiKey\": \"aB3xK9mP2qR7sT4uV6wY1zA8bC5dE0fG\",\n  \"createdAt\": \"2026-03-19T10:00:00Z\",\n  \"note\": \"Save this API key - it will not be shown again.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List partners",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-ADMIN-KEY", "value": "{{adminKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/partners",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "partners"]
+            },
+            "description": "Returns all active (non-revoked) partners."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "[\n  {\n    \"id\": \"a1b2c3d4-0000-0000-0000-000000000001\",\n    \"name\": \"Test Partner 1\",\n    \"createdAt\": \"2026-03-10T12:54:02Z\"\n  },\n  {\n    \"id\": \"a1b2c3d4-0000-0000-0000-000000000002\",\n    \"name\": \"Test Partner 2\",\n    \"createdAt\": \"2026-03-10T12:54:02Z\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Revoke partner",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-ADMIN-KEY", "value": "{{adminKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/partners/{{partnerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "partners", "{{partnerId}}"]
+            },
+            "description": "Soft-deletes the partner and immediately invalidates their API key. The record is retained for auditing. Uses the `partnerId` collection variable."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "status": "No Content",
+              "code": 204,
+              "header": [],
+              "body": ""
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Partner not found\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Partner Products",
+      "item": [
+        {
+          "name": "List partner products",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-ADMIN-KEY", "value": "{{adminKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/partners/{{partnerId}}/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "partners", "{{partnerId}}", "products"]
+            },
+            "description": "Returns all registered SKU mappings for the partner."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "[\n  {\n    \"id\": \"a1b2c3d4-0000-0000-0000-000000000010\",\n    \"partnerSku\": \"PARTNER1-TANK-BLACK\",\n    \"baseSku\": \"M106GV100-S\",\n    \"designReference\": \"Design-001\",\n    \"shopifyVariantId\": 49420784042305\n  },\n  {\n    \"id\": \"a1b2c3d4-0000-0000-0000-000000000011\",\n    \"partnerSku\": \"PARTNER1-TANK-WHITE\",\n    \"baseSku\": \"M106GV900-S\",\n    \"designReference\": \"Design-002\",\n    \"shopifyVariantId\": 50366105354561\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Create partner product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.id) {",
+                  "        pm.collectionVariables.set('partnerProductId', json.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-ADMIN-KEY", "value": "{{adminKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"partnerSku\": \"PARTNER1-TANK-BLACK\",\n  \"baseSku\": \"M106GV100-S\",\n  \"designReference\": \"Design-001\",\n  \"shopifyVariantId\": 49420784042305\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/partners/{{partnerId}}/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "partners", "{{partnerId}}", "products"]
+            },
+            "description": "Register a new SKU mapping for a partner. `partnerSku` must be unique per partner. Obtain `shopifyVariantId` from `GET /api/products`. The `partnerProductId` is saved automatically to the `partnerProductId` collection variable."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"a1b2c3d4-0000-0000-0000-000000000010\",\n  \"partnerSku\": \"PARTNER1-TANK-BLACK\",\n  \"baseSku\": \"M106GV100-S\",\n  \"designReference\": \"Design-001\",\n  \"shopifyVariantId\": 49420784042305\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete partner product",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-ADMIN-KEY", "value": "{{adminKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/partners/{{partnerId}}/products/{{partnerProductId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "partners", "{{partnerId}}", "products", "{{partnerProductId}}"]
+            },
+            "description": "Remove a partner product SKU mapping. Uses the `partnerId` and `partnerProductId` collection variables."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "status": "No Content",
+              "code": 204,
+              "header": [],
+              "body": ""
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Product not found\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

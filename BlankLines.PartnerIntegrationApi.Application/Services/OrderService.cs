@@ -91,12 +91,12 @@ public class OrderService(
             item.OrderId = order.Id;
         }
 
-        // Step 1 — persist the order immediately so it is never lost
+        // Step 1 - persist the order immediately so it is never lost
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
         _logger.LogInformation("Order {PartnerOrderId} created for partner {PartnerId}", order.PartnerOrderId, partnerId);
 
-        // Step 2 — upload design file if provided
+        // Step 2 - upload design file if provided
         if (request.DesignFile != null)
         {
             try
@@ -112,11 +112,11 @@ public class OrderService(
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Design file upload failed for order {PartnerOrderId} — order saved, Shopify submission will proceed without design URL", order.PartnerOrderId);
+                _logger.LogError(ex, "Design file upload failed for order {PartnerOrderId} - order saved, Shopify submission will proceed without design URL", order.PartnerOrderId);
             }
         }
 
-        // Step 3 — submit to Shopify and update the order record
+        // Step 3 - submit to Shopify and update the order record
         try
         {
             var shopifyOrderId = await _shopifyService.CreateOrderAsync(order);
@@ -127,7 +127,7 @@ public class OrderService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Shopify submission failed for order {PartnerOrderId} — order remains in Received status for retry", order.PartnerOrderId);
+            _logger.LogError(ex, "Shopify submission failed for order {PartnerOrderId} - order remains in Received status for retry", order.PartnerOrderId);
             throw new UpstreamServiceException("Shopify", $"Failed to submit order '{request.PartnerOrderId}' to Shopify. The order has been saved and can be retried.", ex);
         }
 

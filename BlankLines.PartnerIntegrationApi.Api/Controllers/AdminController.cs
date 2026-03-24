@@ -34,7 +34,7 @@ public class AdminController : ControllerBase
             name = partner.Name,
             apiKey = plainTextKey,
             createdAt = partner.CreatedAt,
-            note = "Save this API key — it will not be shown again."
+            note = "Save this API key. It will not be shown again."
         });
     }
 
