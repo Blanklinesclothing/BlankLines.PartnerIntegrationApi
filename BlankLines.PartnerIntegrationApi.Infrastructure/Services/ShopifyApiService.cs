@@ -89,6 +89,48 @@ public class ShopifyApiService : IShopifyApiService
         }
     }
 
+    public async Task<long?> ValidateBaseSkuAsync(string sku)
+    {
+        var graphService = _graphServiceFactory.Create(Credentials);
+
+        var request = new GraphRequest
+        {
+            Query = @"
+                query findVariantBySku($query: String!) {
+                    productVariants(first: 1, query: $query) {
+                        nodes {
+                            legacyResourceId
+                            sku
+                        }
+                    }
+                }",
+            Variables = new Dictionary<string, object>
+            {
+                { "query", $"sku:{sku}" }
+            }
+        };
+
+        try
+        {
+            var response = await graphService.PostAsync<VariantSkuQueryResult>(request);
+
+            var variant = response?.Data?.ProductVariants?.Nodes?.FirstOrDefault();
+
+            if (variant == null || !string.Equals(variant.sku, sku, StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            return variant.legacyResourceId;
+        }
+        catch (ShopifyGraphErrorsException ex)
+        {
+            throw new InvalidOperationException(
+                $"GraphQL query error: {string.Join(", ", ex.GraphErrors.Select(e => e.Message))}",
+                ex);
+        }
+    }
+
     public async Task<string> CreateOrderAsync(Domain.Entities.Order order)
     {
         var orderService = _orderServiceFactory.Create(Credentials);
@@ -176,5 +218,21 @@ public class ShopifyApiService : IShopifyApiService
         public long? legacyResourceId { get; set; }
         public string? sku { get; set; }
         public int? inventoryQuantity { get; set; }
+    }
+
+    private record VariantSkuQueryResult
+    {
+        public required VariantSkuConnection ProductVariants { get; set; }
+    }
+
+    private record VariantSkuConnection
+    {
+        public List<VariantSkuNode>? Nodes { get; set; }
+    }
+
+    private record VariantSkuNode
+    {
+        public long? legacyResourceId { get; set; }
+        public string? sku { get; set; }
     }
 }

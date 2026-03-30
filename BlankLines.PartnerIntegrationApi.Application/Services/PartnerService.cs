@@ -8,14 +8,10 @@ using System.Text;
 
 namespace BlankLines.PartnerIntegrationApi.Application.Services;
 
-public class PartnerService : IPartnerService
+public class PartnerService(IApplicationDbContext context, IShopifyApiService shopifyService) : IPartnerService
 {
-    private readonly IApplicationDbContext _context;
-
-    public PartnerService(IApplicationDbContext context)
-    {
-        _context = context;
-    }
+    private readonly IApplicationDbContext _context = context;
+    private readonly IShopifyApiService _shopifyService = shopifyService;
 
     public async Task<Partner?> GetPartnerByApiKeyAsync(string apiKey)
     {
@@ -99,12 +95,8 @@ public class PartnerService : IPartnerService
 
     public async Task<IEnumerable<PartnerProductDto>> GetPartnerProductsAsync(Guid partnerId)
     {
-        var partner = await _context.Partners.FirstOrDefaultAsync(p => p.Id == partnerId);
-
-        if (partner == null)
-        {
-            throw new KeyNotFoundException($"Partner '{partnerId}' not found");
-        }
+        var partner = await _context.Partners.FirstOrDefaultAsync(p => p.Id == partnerId)
+            ?? throw new KeyNotFoundException($"Partner '{partnerId}' not found");
 
         return await _context.PartnerProducts
             .Where(pp => pp.PartnerId == partnerId)
@@ -122,11 +114,12 @@ public class PartnerService : IPartnerService
 
     public async Task<PartnerProductDto> CreatePartnerProductAsync(Guid partnerId, CreatePartnerProductRequest request)
     {
-        var partner = await _context.Partners.FirstOrDefaultAsync(p => p.Id == partnerId);
+        var partner = await _context.Partners.FirstOrDefaultAsync(p => p.Id == partnerId)
+            ?? throw new KeyNotFoundException($"Partner '{partnerId}' not found");
 
-        if (partner == null)
+        if (string.IsNullOrWhiteSpace(request.PartnerSku))
         {
-            throw new KeyNotFoundException($"Partner '{partnerId}' not found");
+            throw new InvalidOperationException("PartnerSku is required");
         }
 
         var exists = await _context.PartnerProducts
@@ -137,6 +130,9 @@ public class PartnerService : IPartnerService
             throw new InvalidOperationException($"Partner SKU '{request.PartnerSku}' is already registered for this partner");
         }
 
+        var variantId = await _shopifyService.ValidateBaseSkuAsync(request.BaseSku)
+            ?? throw new InvalidOperationException($"BaseSku '{request.BaseSku}' does not match any active product in Shopify");
+
         var product = new PartnerProduct
         {
             Id = Guid.NewGuid(),
@@ -144,7 +140,7 @@ public class PartnerService : IPartnerService
             PartnerSku = request.PartnerSku,
             BaseSku = request.BaseSku,
             DesignReference = request.DesignReference,
-            ShopifyVariantId = request.ShopifyVariantId
+            ShopifyVariantId = variantId
         };
 
         _context.PartnerProducts.Add(product);
@@ -163,13 +159,9 @@ public class PartnerService : IPartnerService
     public async Task DeletePartnerProductAsync(Guid partnerId, Guid productId)
     {
         var product = await _context.PartnerProducts
-            .FirstOrDefaultAsync(pp => pp.Id == productId && pp.PartnerId == partnerId);
-
-        if (product == null)
-        {
-            throw new KeyNotFoundException($"Product '{productId}' not found for partner '{partnerId}'");
-        }
-
+            .FirstOrDefaultAsync(pp => pp.Id == productId && pp.PartnerId == partnerId)
+            ?? throw new KeyNotFoundException($"Product '{productId}' not found for partner '{partnerId}'");
+        
         _context.PartnerProducts.Remove(product);
         await _context.SaveChangesAsync();
     }

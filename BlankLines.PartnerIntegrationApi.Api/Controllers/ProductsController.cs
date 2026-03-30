@@ -9,14 +9,9 @@ namespace BlankLines.PartnerIntegrationApi.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public class ProductsController : ControllerBase
+public class ProductsController(IShopifyApiService shopifyService) : ControllerBase
 {
-    private readonly IShopifyApiService _shopifyService;
-
-    public ProductsController(IShopifyApiService shopifyService)
-    {
-        _shopifyService = shopifyService;
-    }
+    private readonly IShopifyApiService _shopifyService = shopifyService;
 
     /// <summary>
     /// Returns all products available to order from the BlankLines Shopify store.

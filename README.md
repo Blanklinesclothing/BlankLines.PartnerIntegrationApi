@@ -1,4 +1,6 @@
-﻿# BlankLines Partner Integration API
+﻿File: README.md
+````````markdown
+# BlankLines Partner Integration API
 
 # BlankLines Partner Integration API
 
@@ -88,6 +90,30 @@ The interactive reference for all partner-facing endpoints is at:
 Available locally at `https://localhost:{port}/scalar/v1` when running in development.
 
 The raw OpenAPI spec is at `/openapi/v1.json`.
+
+#### Partner products (`/api/partner-products`)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/partner-products` | List all products registered under your partner account |
+| `POST` | `/api/partner-products` | Register a new product |
+
+**POST request body:**
+
+```json
+{
+  "partnerSku": "MY-SKU-001",
+  "baseSku": "BL-TEE-WHITE-M",
+  "designReference": "spring-2025-logo"
+}
+```
+
+- `partnerSku` - Your own internal SKU. Used when placing orders. Must be unique per partner account.
+- `baseSku` - The BlankLines base product SKU. Must exactly match an active variant in the BlankLines Shopify store. A `400` error is returned if the SKU is not found.
+- `designReference` - A reference string identifying the design to apply to this product.
+
+`shopifyVariantId` is resolved automatically from the validated `baseSku` and is included in the response.
+
 
 ### Admin endpoints (`/admin/*`)
 
