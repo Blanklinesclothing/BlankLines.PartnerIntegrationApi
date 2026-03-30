@@ -1,4 +1,5 @@
 using BlankLines.PartnerIntegrationApi.Api.Middleware;
+using BlankLines.PartnerIntegrationApi.Api.OpenApi;
 using BlankLines.PartnerIntegrationApi.Api.Options;
 using BlankLines.PartnerIntegrationApi.Application;
 using BlankLines.PartnerIntegrationApi.Infrastructure;
@@ -51,6 +52,8 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddOpenApi(options =>
 {
+    options.AddOperationTransformer<XmlDocumentationTransformer>();
+
     options.AddDocumentTransformer((document, context, ct) =>
     {
         document.Info = new OpenApiInfo
