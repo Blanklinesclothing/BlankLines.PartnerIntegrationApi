@@ -117,11 +117,6 @@ public class PartnerService(IApplicationDbContext context, IShopifyApiService sh
         var partner = await _context.Partners.FirstOrDefaultAsync(p => p.Id == partnerId)
             ?? throw new KeyNotFoundException($"Partner '{partnerId}' not found");
 
-        if (string.IsNullOrWhiteSpace(request.PartnerSku))
-        {
-            throw new InvalidOperationException("PartnerSku is required");
-        }
-
         var exists = await _context.PartnerProducts
             .AnyAsync(pp => pp.PartnerId == partnerId && pp.PartnerSku == request.PartnerSku);
 

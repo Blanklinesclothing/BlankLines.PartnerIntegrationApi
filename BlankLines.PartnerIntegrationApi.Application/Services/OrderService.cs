@@ -21,33 +21,47 @@ public class OrderService(
     private readonly IStorageService _storageService = storageService;
     private readonly ILogger<OrderService> _logger = logger;
 
-    private static readonly HashSet<string> AllowedImageTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "image/jpeg", "image/png", "image/webp", "image/gif"
-    };
-
     public async Task<string> CreateOrderAsync(Guid partnerId, CreateOrderRequest request)
     {
-        if (request.DesignFile != null && !AllowedImageTypes.Contains(request.DesignFile.ContentType))
-        {
-            throw new InvalidOperationException("Design file must be an image (JPEG, PNG, WebP, or GIF)");
-        }
+        ValidateCreateOrderRequest(request);
 
-        var existingOrder = await _context.Orders
-            .FirstOrDefaultAsync(o => o.PartnerId == partnerId && o.PartnerOrderId == request.PartnerOrderId);
-
-        if (existingOrder != null)
-        {
-            throw new InvalidOperationException($"Order '{request.PartnerOrderId}' already exists");
-        }
+        await EnsureOrderIsUniqueAsync(partnerId, request.PartnerOrderId);
 
         var partnerProducts = await _context.PartnerProducts
             .Where(pp => pp.PartnerId == partnerId)
             .ToListAsync();
 
+        var orderItems = await BuildOrderItemsAsync(request.Items, partnerProducts);
+
+        var order = BuildOrder(partnerId, request, orderItems);
+
+        await PersistOrderAsync(order);
+
+        await UploadDesignFileAsync(order, request.DesignFile);
+
+        await SubmitToShopifyAsync(order, request.PartnerOrderId);
+
+        return order.Id.ToString();
+    }
+
+    private async Task EnsureOrderIsUniqueAsync(Guid partnerId, string partnerOrderId)
+    {
+        var exists = await _context.Orders
+            .AnyAsync(o => o.PartnerId == partnerId && o.PartnerOrderId == partnerOrderId);
+
+        if (exists)
+        {
+            throw new InvalidOperationException($"Order '{partnerOrderId}' already exists");
+        }
+    }
+
+    private async Task<List<OrderItem>> BuildOrderItemsAsync(
+        List<OrderItemDto> requestItems,
+        List<PartnerProduct> partnerProducts)
+    {
         var orderItems = new List<OrderItem>();
 
-        foreach (var item in request.Items)
+        foreach (var item in requestItems)
         {
             var partnerProduct = partnerProducts
                 .FirstOrDefault(pp => pp.PartnerSku == item.PartnerSku)
@@ -55,22 +69,7 @@ public class OrderService(
 
             if (partnerProduct.ShopifyVariantId.HasValue)
             {
-                int available;
-                try
-                {
-                    available = await _shopifyService.GetInventoryQuantityAsync(partnerProduct.ShopifyVariantId.Value);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Inventory check failed for variant {VariantId} (PartnerSku: {PartnerSku})", partnerProduct.ShopifyVariantId, item.PartnerSku);
-                    throw new UpstreamServiceException("Shopify", $"Could not verify inventory for '{item.PartnerSku}'. Please try again.", ex);
-                }
-
-                if (available < item.Quantity)
-                {
-                    throw new InvalidOperationException(
-                        $"Insufficient stock for '{item.PartnerSku}': {available} available, {item.Quantity} requested.");
-                }
+                await CheckInventoryAsync(partnerProduct.ShopifyVariantId.Value, item.PartnerSku, item.Quantity);
             }
 
             orderItems.Add(new OrderItem
@@ -84,6 +83,31 @@ public class OrderService(
             });
         }
 
+        return orderItems;
+    }
+
+    private async Task CheckInventoryAsync(long variantId, string partnerSku, int requestedQuantity)
+    {
+        int available;
+        try
+        {
+            available = await _shopifyService.GetInventoryQuantityAsync(variantId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Inventory check failed for variant {VariantId} (PartnerSku: {PartnerSku})", variantId, partnerSku);
+            throw new UpstreamServiceException("Shopify", $"Could not verify inventory for '{partnerSku}'. Please try again.", ex);
+        }
+
+        if (available < requestedQuantity)
+        {
+            throw new InvalidOperationException(
+                $"Insufficient stock for '{partnerSku}': {available} available, {requestedQuantity} requested.");
+        }
+    }
+
+    private static Order BuildOrder(Guid partnerId, CreateOrderRequest request, List<OrderItem> orderItems)
+    {
         var order = new Order
         {
             Id = Guid.NewGuid(),
@@ -111,32 +135,42 @@ public class OrderService(
             item.OrderId = order.Id;
         }
 
-        // Step 1 - persist the order immediately so it is never lost
+        return order;
+    }
+
+    private async Task PersistOrderAsync(Order order)
+    {
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
-        _logger.LogInformation("Order {PartnerOrderId} created for partner {PartnerId}", order.PartnerOrderId, partnerId);
+        _logger.LogInformation("Order {PartnerOrderId} created for partner {PartnerId}", order.PartnerOrderId, order.PartnerId);
+    }
 
-        // Step 2 - upload design file if provided
-        if (request.DesignFile != null)
+    private async Task UploadDesignFileAsync(Order order, DesignFileDto? designFile)
+    {
+        if (designFile == null)
         {
-            try
-            {
-                order.DesignFileUrl = await _storageService.UploadDesignAsync(
-                    request.PartnerOrderId,
-                    request.DesignFile.Content,
-                    request.DesignFile.ContentType,
-                    request.DesignFile.Extension);
-
-                await _context.SaveChangesAsync();
-                _logger.LogInformation("Design file uploaded for order {PartnerOrderId}", order.PartnerOrderId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Design file upload failed for order {PartnerOrderId} - order saved, Shopify submission will proceed without design URL", order.PartnerOrderId);
-            }
+            return;
         }
 
-        // Step 3 - submit to Shopify and update the order record
+        try
+        {
+            order.DesignFileUrl = await _storageService.UploadDesignAsync(
+                order.PartnerOrderId,
+                designFile.Content,
+                designFile.ContentType,
+                designFile.Extension);
+
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Design file uploaded for order {PartnerOrderId}", order.PartnerOrderId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Design file upload failed for order {PartnerOrderId} - order saved, Shopify submission will proceed without design URL", order.PartnerOrderId);
+        }
+    }
+
+    private async Task SubmitToShopifyAsync(Order order, string partnerOrderId)
+    {
         try
         {
             var shopifyOrderId = await _shopifyService.CreateOrderAsync(order);
@@ -148,10 +182,8 @@ public class OrderService(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Shopify submission failed for order {PartnerOrderId} - order remains in Received status for retry", order.PartnerOrderId);
-            throw new UpstreamServiceException("Shopify", $"Failed to submit order '{request.PartnerOrderId}' to Shopify. The order has been saved and can be retried.", ex);
+            throw new UpstreamServiceException("Shopify", $"Failed to submit order '{partnerOrderId}' to Shopify. The order has been saved and can be retried.", ex);
         }
-
-        return order.Id.ToString();
     }
 
     public async Task<OrderResponse> GetOrderAsync(Guid partnerId, string partnerOrderId)
@@ -233,5 +265,93 @@ public class OrderService(
         order.Status = OrderStatus.Cancelled;
         await _context.SaveChangesAsync();
         _logger.LogInformation("Order {PartnerOrderId} cancelled by partner {PartnerId}", request.PartnerOrderId, partnerId);
+    }
+
+    private static void ValidateCreateOrderRequest(CreateOrderRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.PartnerOrderId))
+        {
+            throw new InvalidOperationException("PartnerOrderId is required.");
+        }
+
+        ValidateCustomer(request.Customer);
+
+        if (request.Items == null || request.Items.Count == 0)
+        {
+            throw new InvalidOperationException("Order must contain at least one item.");
+        }
+
+        foreach (var item in request.Items)
+        {
+            if (string.IsNullOrWhiteSpace(item.PartnerSku))
+            {
+                throw new InvalidOperationException("Each order item must have a PartnerSku.");
+            }
+
+            if (item.Quantity <= 0)
+            {
+                throw new InvalidOperationException($"Invalid quantity for '{item.PartnerSku}': quantity must be greater than zero.");
+            }
+        }
+
+        var duplicateSku = request.Items
+            .GroupBy(i => i.PartnerSku, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault(g => g.Count() > 1);
+
+        if (duplicateSku != null)
+        {
+            throw new InvalidOperationException($"Duplicate PartnerSku '{duplicateSku.Key}' in order items. Combine quantities into a single line item.");
+        }
+
+        if (request.DeliveryMethod == DeliveryMethod.Shipping && request.ShippingAddress == null)
+        {
+            throw new InvalidOperationException("A shipping address is required when delivery method is Shipping.");
+        }
+
+        if (request.ShippingAddress != null)
+        {
+            ValidateShippingAddress(request.ShippingAddress);
+        }
+    }
+
+    private static void ValidateCustomer(CustomerDto customer)
+    {
+        if (string.IsNullOrWhiteSpace(customer.FirstName))
+        {
+            throw new InvalidOperationException("Customer first name is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(customer.LastName))
+        {
+            throw new InvalidOperationException("Customer last name is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(customer.Email) || !customer.Email.Contains('@'))
+        {
+            throw new InvalidOperationException("A valid customer email address is required.");
+        }
+    }
+
+    private static void ValidateShippingAddress(ShippingAddressDto address)
+    {
+        if (string.IsNullOrWhiteSpace(address.Address1))
+        {
+            throw new InvalidOperationException("Shipping address line 1 is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(address.City))
+        {
+            throw new InvalidOperationException("Shipping city is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(address.Country) || address.Country.Trim().Length != 2)
+        {
+            throw new InvalidOperationException("Shipping country must be a 2-letter ISO country code (e.g. AU, US, GB).");
+        }
+
+        if (string.IsNullOrWhiteSpace(address.Zip))
+        {
+            throw new InvalidOperationException("Shipping postal code is required.");
+        }
     }
 }
