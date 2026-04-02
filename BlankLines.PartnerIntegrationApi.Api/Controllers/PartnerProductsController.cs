@@ -31,8 +31,10 @@ public class PartnerProductsController(IPartnerService partnerService) : Control
     /// Register a new product under your partner account.
     /// </summary>
     /// <remarks>
-    /// The <c>baseSku</c> must correspond to an active product variant in the BlankLines Shopify store.
-    /// The <c>partnerSku</c> is your own internal SKU used when placing orders.
+    /// The <c>baseSku</c> must exactly match an active product variant in the BlankLines Shopify store.
+    /// The <c>partnerSku</c> is your own internal SKU used when placing orders. Must be unique per partner account.
+    /// The <c>designReference</c> identifies the design to apply to this product.
+    /// All three fields are required and must not be blank.
     /// </remarks>
     [HttpPost]
     [ProducesResponseType(typeof(PartnerProductDto), StatusCodes.Status201Created)]

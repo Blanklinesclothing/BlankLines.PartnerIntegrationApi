@@ -2,6 +2,7 @@ using BlankLines.PartnerIntegrationApi.Application.DTOs;
 using BlankLines.PartnerIntegrationApi.Application.Interfaces;
 using BlankLines.PartnerIntegrationApi.Application.Requests;
 using BlankLines.PartnerIntegrationApi.Application.Responses;
+using BlankLines.PartnerIntegrationApi.Application.Validators;
 using BlankLines.PartnerIntegrationApi.Domain.Entities;
 using BlankLines.PartnerIntegrationApi.Domain.Enums;
 using BlankLines.PartnerIntegrationApi.Domain.Exceptions;
@@ -14,16 +15,20 @@ public class OrderService(
     IApplicationDbContext context,
     IShopifyApiService shopifyService,
     IStorageService storageService,
-    ILogger<OrderService> logger) : IOrderService
+    ILogger<OrderService> logger,
+    IRequestValidator<CreateOrderRequest> orderRequestValidator,
+    IRequestValidator<CancelOrderRequest> cancelOrderRequestValidator) : IOrderService
 {
     private readonly IApplicationDbContext _context = context;
     private readonly IShopifyApiService _shopifyService = shopifyService;
     private readonly IStorageService _storageService = storageService;
     private readonly ILogger<OrderService> _logger = logger;
+    private readonly IRequestValidator<CreateOrderRequest> _orderRequestValidator = orderRequestValidator;
+    private readonly IRequestValidator<CancelOrderRequest> _cancelOrderRequestValidator = cancelOrderRequestValidator;
 
     public async Task<string> CreateOrderAsync(Guid partnerId, CreateOrderRequest request)
     {
-        ValidateCreateOrderRequest(request);
+        _orderRequestValidator.Validate(request);
 
         await EnsureOrderIsUniqueAsync(partnerId, request.PartnerOrderId);
 
@@ -230,12 +235,19 @@ public class OrderService(
 
     public async Task CancelOrderAsync(Guid partnerId, CancelOrderRequest request)
     {
+        _cancelOrderRequestValidator.Validate(request);
+
         var order = await _context.Orders
             .FirstOrDefaultAsync(o => o.PartnerId == partnerId && o.PartnerOrderId == request.PartnerOrderId);
 
         if (order == null)
         {
             throw new KeyNotFoundException($"Order '{request.PartnerOrderId}' not found");
+        }
+
+        if (order.Status == OrderStatus.Cancelled)
+        {
+            throw new InvalidOperationException($"Order '{request.PartnerOrderId}' is already cancelled.");
         }
 
         if ((DateTime.UtcNow - order.CreatedAt).TotalHours > 24)
@@ -265,93 +277,5 @@ public class OrderService(
         order.Status = OrderStatus.Cancelled;
         await _context.SaveChangesAsync();
         _logger.LogInformation("Order {PartnerOrderId} cancelled by partner {PartnerId}", request.PartnerOrderId, partnerId);
-    }
-
-    private static void ValidateCreateOrderRequest(CreateOrderRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.PartnerOrderId))
-        {
-            throw new InvalidOperationException("PartnerOrderId is required.");
-        }
-
-        ValidateCustomer(request.Customer);
-
-        if (request.Items == null || request.Items.Count == 0)
-        {
-            throw new InvalidOperationException("Order must contain at least one item.");
-        }
-
-        foreach (var item in request.Items)
-        {
-            if (string.IsNullOrWhiteSpace(item.PartnerSku))
-            {
-                throw new InvalidOperationException("Each order item must have a PartnerSku.");
-            }
-
-            if (item.Quantity <= 0)
-            {
-                throw new InvalidOperationException($"Invalid quantity for '{item.PartnerSku}': quantity must be greater than zero.");
-            }
-        }
-
-        var duplicateSku = request.Items
-            .GroupBy(i => i.PartnerSku, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault(g => g.Count() > 1);
-
-        if (duplicateSku != null)
-        {
-            throw new InvalidOperationException($"Duplicate PartnerSku '{duplicateSku.Key}' in order items. Combine quantities into a single line item.");
-        }
-
-        if (request.DeliveryMethod == DeliveryMethod.Shipping && request.ShippingAddress == null)
-        {
-            throw new InvalidOperationException("A shipping address is required when delivery method is Shipping.");
-        }
-
-        if (request.ShippingAddress != null)
-        {
-            ValidateShippingAddress(request.ShippingAddress);
-        }
-    }
-
-    private static void ValidateCustomer(CustomerDto customer)
-    {
-        if (string.IsNullOrWhiteSpace(customer.FirstName))
-        {
-            throw new InvalidOperationException("Customer first name is required.");
-        }
-
-        if (string.IsNullOrWhiteSpace(customer.LastName))
-        {
-            throw new InvalidOperationException("Customer last name is required.");
-        }
-
-        if (string.IsNullOrWhiteSpace(customer.Email) || !customer.Email.Contains('@'))
-        {
-            throw new InvalidOperationException("A valid customer email address is required.");
-        }
-    }
-
-    private static void ValidateShippingAddress(ShippingAddressDto address)
-    {
-        if (string.IsNullOrWhiteSpace(address.Address1))
-        {
-            throw new InvalidOperationException("Shipping address line 1 is required.");
-        }
-
-        if (string.IsNullOrWhiteSpace(address.City))
-        {
-            throw new InvalidOperationException("Shipping city is required.");
-        }
-
-        if (string.IsNullOrWhiteSpace(address.Country) || address.Country.Trim().Length != 2)
-        {
-            throw new InvalidOperationException("Shipping country must be a 2-letter ISO country code (e.g. AU, US, GB).");
-        }
-
-        if (string.IsNullOrWhiteSpace(address.Zip))
-        {
-            throw new InvalidOperationException("Shipping postal code is required.");
-        }
     }
 }

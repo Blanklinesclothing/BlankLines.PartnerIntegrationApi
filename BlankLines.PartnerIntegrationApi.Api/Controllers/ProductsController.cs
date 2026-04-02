@@ -8,7 +8,7 @@ namespace BlankLines.PartnerIntegrationApi.Api.Controllers;
 /// Browse products available for ordering.
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/products")]
 public class ProductsController(IShopifyApiService shopifyService) : ControllerBase
 {
     private readonly IShopifyApiService _shopifyService = shopifyService;

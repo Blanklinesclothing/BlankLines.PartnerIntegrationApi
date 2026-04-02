@@ -19,6 +19,11 @@ public class OrdersController : ControllerBase
         "image/jpeg", "image/png", "image/webp", "image/gif"
     };
 
+    private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     private readonly IOrderService _orderService;
 
     public OrdersController(IOrderService orderService)
@@ -34,6 +39,15 @@ public class OrdersController : ControllerBase
     /// The request must be sent as <c>multipart/form-data</c>.
     /// An optional design image (JPEG, PNG, WebP, or GIF) can be attached via the <c>designFile</c> field.
     /// <c>shippingAddressJson</c> is required when <c>deliveryMethod</c> is <c>Shipping</c>.
+    ///
+    /// Validation rules:
+    /// <list type="bullet">
+    /// <item>Each item must have a non-empty <c>partnerSku</c> and a <c>quantity</c> greater than zero.</item>
+    /// <item>Duplicate <c>partnerSku</c> values within the same order are not allowed — combine quantities into one line item.</item>
+    /// <item>Customer <c>email</c> must contain an <c>@</c> symbol.</item>
+    /// <item>When <c>deliveryMethod</c> is <c>Shipping</c>, the shipping address <c>country</c> must be a 2-letter ISO code (e.g. AU, US, GB).</item>
+    /// <item>Live inventory is checked per item before the order is persisted. Insufficient stock returns a <c>400</c>.</item>
+    /// </list>
     /// </remarks>
     /// <param name="partnerOrderId">Your unique order reference.</param>
     /// <param name="deliveryMethod"><c>Shipping</c> or <c>Pickup</c>.</param>
@@ -59,12 +73,10 @@ public class OrdersController : ControllerBase
             return BadRequest(new { error = "Design file must be an image (JPEG, PNG, WebP, or GIF)" });
         }
 
-        var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-
-        var items = System.Text.Json.JsonSerializer.Deserialize<List<OrderItemDto>>(itemsJson, options);
-        var customer = System.Text.Json.JsonSerializer.Deserialize<CustomerDto>(customerJson, options);
+        var items = System.Text.Json.JsonSerializer.Deserialize<List<OrderItemDto>>(itemsJson, JsonOptions);
+        var customer = System.Text.Json.JsonSerializer.Deserialize<CustomerDto>(customerJson, JsonOptions);
         var shippingAddress = shippingAddressJson is not null
-            ? System.Text.Json.JsonSerializer.Deserialize<ShippingAddressDto>(shippingAddressJson, options)
+            ? System.Text.Json.JsonSerializer.Deserialize<ShippingAddressDto>(shippingAddressJson, JsonOptions)
             : null;
 
         if (items == null || customer == null)

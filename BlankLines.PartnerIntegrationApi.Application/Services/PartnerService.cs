@@ -1,6 +1,7 @@
 using BlankLines.PartnerIntegrationApi.Application.DTOs;
 using BlankLines.PartnerIntegrationApi.Application.Interfaces;
 using BlankLines.PartnerIntegrationApi.Application.Requests;
+using BlankLines.PartnerIntegrationApi.Application.Validators;
 using BlankLines.PartnerIntegrationApi.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
@@ -8,10 +9,14 @@ using System.Text;
 
 namespace BlankLines.PartnerIntegrationApi.Application.Services;
 
-public class PartnerService(IApplicationDbContext context, IShopifyApiService shopifyService) : IPartnerService
+public class PartnerService(
+    IApplicationDbContext context,
+    IShopifyApiService shopifyService,
+    IRequestValidator<CreatePartnerProductRequest> createPartnerProductRequestValidator) : IPartnerService
 {
     private readonly IApplicationDbContext _context = context;
     private readonly IShopifyApiService _shopifyService = shopifyService;
+    private readonly IRequestValidator<CreatePartnerProductRequest> _createPartnerProductRequestValidator = createPartnerProductRequestValidator;
 
     public async Task<Partner?> GetPartnerByApiKeyAsync(string apiKey)
     {
@@ -114,6 +119,8 @@ public class PartnerService(IApplicationDbContext context, IShopifyApiService sh
 
     public async Task<PartnerProductDto> CreatePartnerProductAsync(Guid partnerId, CreatePartnerProductRequest request)
     {
+        _createPartnerProductRequestValidator.Validate(request);
+
         var partner = await _context.Partners.FirstOrDefaultAsync(p => p.Id == partnerId)
             ?? throw new KeyNotFoundException($"Partner '{partnerId}' not found");
 
@@ -156,7 +163,7 @@ public class PartnerService(IApplicationDbContext context, IShopifyApiService sh
         var product = await _context.PartnerProducts
             .FirstOrDefaultAsync(pp => pp.Id == productId && pp.PartnerId == partnerId)
             ?? throw new KeyNotFoundException($"Product '{productId}' not found for partner '{partnerId}'");
-        
+
         _context.PartnerProducts.Remove(product);
         await _context.SaveChangesAsync();
     }
