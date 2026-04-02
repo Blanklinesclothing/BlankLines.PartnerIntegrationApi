@@ -50,9 +50,29 @@ public class OrderService(
         foreach (var item in request.Items)
         {
             var partnerProduct = partnerProducts
-                .FirstOrDefault(pp => pp.PartnerSku == item.PartnerSku) 
+                .FirstOrDefault(pp => pp.PartnerSku == item.PartnerSku)
                 ?? throw new InvalidOperationException($"Partner SKU '{item.PartnerSku}' not found");
-            
+
+            if (partnerProduct.ShopifyVariantId.HasValue)
+            {
+                int available;
+                try
+                {
+                    available = await _shopifyService.GetInventoryQuantityAsync(partnerProduct.ShopifyVariantId.Value);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Inventory check failed for variant {VariantId} (PartnerSku: {PartnerSku})", partnerProduct.ShopifyVariantId, item.PartnerSku);
+                    throw new UpstreamServiceException("Shopify", $"Could not verify inventory for '{item.PartnerSku}'. Please try again.", ex);
+                }
+
+                if (available < item.Quantity)
+                {
+                    throw new InvalidOperationException(
+                        $"Insufficient stock for '{item.PartnerSku}': {available} available, {item.Quantity} requested.");
+                }
+            }
+
             orderItems.Add(new OrderItem
             {
                 Id = Guid.NewGuid(),

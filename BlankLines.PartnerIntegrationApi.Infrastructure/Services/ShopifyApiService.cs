@@ -131,6 +131,39 @@ public class ShopifyApiService : IShopifyApiService
         }
     }
 
+    public async Task<int> GetInventoryQuantityAsync(long variantId)
+    {
+        var graphService = _graphServiceFactory.Create(Credentials);
+
+        var gid = $"gid://shopify/ProductVariant/{variantId}";
+
+        var request = new GraphRequest
+        {
+            Query = @"
+                query getVariantInventory($id: ID!) {
+                    productVariant(id: $id) {
+                        inventoryQuantity
+                    }
+                }",
+            Variables = new Dictionary<string, object>
+            {
+                { "id", gid }
+            }
+        };
+
+        try
+        {
+            var response = await graphService.PostAsync<VariantInventoryQueryResult>(request);
+            return response?.Data?.ProductVariant?.inventoryQuantity ?? 0;
+        }
+        catch (ShopifyGraphErrorsException ex)
+        {
+            throw new InvalidOperationException(
+                $"GraphQL query error: {string.Join(", ", ex.GraphErrors.Select(e => e.Message))}",
+                ex);
+        }
+    }
+
     public async Task<string> CreateOrderAsync(Domain.Entities.Order order)
     {
         var orderService = _orderServiceFactory.Create(Credentials);
@@ -234,5 +267,15 @@ public class ShopifyApiService : IShopifyApiService
     {
         public long? legacyResourceId { get; set; }
         public string? sku { get; set; }
+    }
+
+    private record VariantInventoryQueryResult
+    {
+        public VariantInventoryNode? ProductVariant { get; set; }
+    }
+
+    private record VariantInventoryNode
+    {
+        public int? inventoryQuantity { get; set; }
     }
 }

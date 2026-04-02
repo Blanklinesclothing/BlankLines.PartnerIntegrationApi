@@ -1,14 +1,12 @@
-﻿File: README.md
-````````markdown
-# BlankLines Partner Integration API
-
 # BlankLines Partner Integration API
 
 A REST API that allows approved partners to submit and manage orders fulfilled through the BlankLines Shopify store.
 
 ## Overview
 
-Partners authenticate via API key and can place orders against BlankLines products. Submitted orders are pushed to Shopify for fulfilment. Partners can also query available products, attach a custom design file per order, and track or cancel their orders.
+Partners authenticate via API key and can place orders against BlankLines products. Submitted orders are pushed to Shopify for fulfilment. Partners can also register their own product SKUs, query available products, attach a custom design file per order, and track or cancel their orders.
+
+Before an order is submitted to Shopify, live inventory is checked for each line item. If any item cannot be fulfilled at the requested quantity, the order is rejected immediately with a clear error before anything is persisted.
 
 ## Tech Stack
 
@@ -24,7 +22,7 @@ Clean architecture layout:
 
 | Project | Responsibility |
 |---|---|
-| `Api` | Controllers, middleware, app entry point |
+| `Api` | Controllers, middleware, OpenAPI transformers, app entry point |
 | `Application` | Services, interfaces, DTOs, request/response models |
 | `Domain` | Entities and enums |
 | `Infrastructure` | EF Core DbContext, Shopify service, R2 storage, migrations |
@@ -91,6 +89,12 @@ Available locally at `https://localhost:{port}/scalar/v1` when running in develo
 
 The raw OpenAPI spec is at `/openapi/v1.json`.
 
+#### Browse BlankLines products (`/api/products`)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/products` | List all active products available in the BlankLines Shopify store |
+
 #### Partner products (`/api/partner-products`)
 
 | Method | Path | Description |
@@ -114,6 +118,19 @@ The raw OpenAPI spec is at `/openapi/v1.json`.
 
 `shopifyVariantId` is resolved automatically from the validated `baseSku` and is included in the response.
 
+#### Orders (`/api/orders`)
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/orders` | Submit a new order for fulfilment |
+| `GET` | `/api/orders/{partnerOrderId}` | Retrieve the status of an order |
+| `POST` | `/api/orders/cancel` | Cancel an order (within 24 hours of submission) |
+
+Before an order is accepted, live inventory is verified for every line item against the BlankLines Shopify store. If any item has insufficient stock a `400` error is returned immediately and nothing is persisted:
+
+```json
+{ "error": "Insufficient stock for 'MY-SKU-001': 3 available, 10 requested." }
+```
 
 ### Admin endpoints (`/admin/*`)
 
@@ -193,7 +210,7 @@ All error responses use this shape:
 
 | Status | Condition |
 |---|---|
-| `400 Bad Request` | Invalid input or business rule violation |
+| `400 Bad Request` | Invalid input, business rule violation, or insufficient stock |
 | `401 Unauthorized` | Missing or invalid API key |
 | `404 Not Found` | Requested resource does not exist |
 | `429 Too Many Requests` | Rate limit exceeded |
