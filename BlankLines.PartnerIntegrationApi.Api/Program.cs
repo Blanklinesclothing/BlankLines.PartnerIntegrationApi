@@ -132,7 +132,7 @@ using var scope = app.Services.CreateScope();
 var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 await context.Database.MigrateAsync();
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
 {
     await DatabaseSeeder.SeedAsync(context);
 }
