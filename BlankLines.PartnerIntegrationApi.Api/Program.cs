@@ -116,6 +116,13 @@ var app = builder.Build();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.MapOpenApi();
+
+var apiBaseUrl = app.Environment.IsEnvironment("Sandbox")
+    ? "https://sandbox-api.blanklines.com"
+    : app.Environment.IsProduction()
+        ? "https://api.blanklines.com"
+        : null;
+
 app.MapScalarApiReference(options =>
 {
     options.Title = "BlankLines Partner API";
@@ -126,6 +133,11 @@ app.MapScalarApiReference(options =>
         auth.Name = "X-API-KEY";
         auth.Description = "Your partner API key";
     });
+
+    if (apiBaseUrl is not null)
+    {
+        options.Servers = [new ScalarServer(apiBaseUrl)];
+    }
 });
 
 using var scope = app.Services.CreateScope();

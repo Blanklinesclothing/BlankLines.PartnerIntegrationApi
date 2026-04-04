@@ -83,7 +83,10 @@ The database is migrated automatically on startup. In development, seed data is 
 
 The interactive reference for all partner-facing endpoints is at:
 
-**https://api.blanklines.com/scalar/v1**
+| Environment | Scalar UI | OpenAPI spec |
+|---|---|---|
+| Production | **https://api.blanklines.com/scalar/v1** | `https://api.blanklines.com/openapi/v1.json` |
+| Sandbox | **https://sandbox-api.blanklines.com/scalar/v1** | `https://sandbox-api.blanklines.com/openapi/v1.json` |
 
 Available locally at `https://localhost:{port}/scalar/v1` when running in development.
 
@@ -124,6 +127,7 @@ The raw OpenAPI spec is at `/openapi/v1.json`.
 |---|---|---|
 | `POST` | `/api/orders` | Submit a new order for fulfilment |
 | `GET` | `/api/orders/{partnerOrderId}` | Retrieve the status of an order |
+| `GET` | `/api/orders/{partnerOrderId}/files/{fileId}` | View a design or vector file (redirects to 1-hour presigned URL) |
 | `POST` | `/api/orders/cancel` | Cancel an order (within 24 hours of submission) |
 
 Before an order is accepted, live inventory is verified for every line item against the BlankLines Shopify store. If any item has insufficient stock a `400` error is returned immediately and nothing is persisted:
@@ -144,11 +148,14 @@ Admin endpoints are excluded from the public spec. Full reference:
 
 ### Partner collection
 
-Import the live OpenAPI spec directly into Postman - no file to maintain:
+Import the OpenAPI spec directly into Postman - no file to maintain:
 
 1. Open Postman > **Import**
 2. Select **Link**
-3. Enter `https://localhost:{port}/openapi/v1.json`
+3. Enter the spec URL for the environment you want:
+   - Production: `https://api.blanklines.com/openapi/v1.json`
+   - Sandbox: `https://sandbox-api.blanklines.com/openapi/v1.json`
+   - Local: `https://localhost:{port}/openapi/v1.json`
 
 Postman generates the collection from the spec. Re-import whenever the API changes.
 
@@ -196,7 +203,20 @@ Partner endpoints are rate-limited to **10 requests per minute** per API key (fi
 
 ## Design Files
 
-Attach an optional design image at order creation via the `designFile` form field. Accepted formats: JPEG, PNG, WebP, GIF. Max size: **10 MB**. Files are stored in Cloudflare R2 under `{R2:UploadFolder}/{partnerOrderId}.{ext}`.
+Up to **5 design image files** and **5 vector files** can be attached per order.
+
+| Field | Accepted formats | Max size |
+|---|---|---|
+| `designFiles[]` | JPEG, PNG, WebP, GIF | 10 MB per file |
+| `vectorFiles[]` | SVG only | 10 MB per file |
+
+Files are stored privately in Cloudflare R2. They are never publicly accessible via a direct URL. To view a file, use:
+
+```
+GET /api/orders/{partnerOrderId}/files/{fileId}
+```
+
+This returns a `302` redirect to a presigned URL valid for **1 hour**. File IDs are returned in the `files` array on the order response. Each file also appears as a named line item property on the Shopify order so the print team can access it directly.
 
 ---
 
@@ -334,6 +354,9 @@ See [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 ## Partner Documentation
 
-API reference: **https://api.blanklines.com/scalar/v1**
+| Environment | API reference |
+|---|---|
+| Production | **https://api.blanklines.com/scalar/v1** |
+| Sandbox | **https://sandbox-api.blanklines.com/scalar/v1** |
 
 Integration support: [hello@blanklines.com](mailto:hello@blanklines.com)
