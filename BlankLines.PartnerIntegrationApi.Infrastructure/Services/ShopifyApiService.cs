@@ -173,7 +173,8 @@ public class ShopifyApiService : IShopifyApiService
             LineItems = order.Items.Select(item => new LineItem
             {
                 VariantId = item.ShopifyVariantId,
-                Quantity = item.Quantity
+                Quantity = item.Quantity,
+                Properties = BuildLineItemProperties(item, order.DesignFileUrl)
             }).ToList(),
             Customer = new Customer
             {
@@ -194,8 +195,7 @@ public class ShopifyApiService : IShopifyApiService
                 Zip = order.ShippingZip,
                 Phone = order.ShippingPhone
             } : null,
-            Note = $"Partner Order ID: {order.PartnerOrderId}" +
-                   string.Concat(order.Items.Select(i => $"\nPartner SKU: {i.PartnerSku}\nDesign Reference: {i.DesignReference}")),
+            Note = $"Partner Order ID: {order.PartnerOrderId}",
             Tags = order.DeliveryMethod.ToString(),
             FinancialStatus = "paid"
         };
@@ -208,6 +208,22 @@ public class ShopifyApiService : IShopifyApiService
         }
 
         return createdOrder.Id.Value.ToString();
+    }
+
+    private static List<LineItemProperty> BuildLineItemProperties(Domain.Entities.OrderItem item, string? designFileUrl)
+    {
+        var properties = new List<LineItemProperty>
+        {
+            new() { Name = "Partner SKU", Value = item.PartnerSku },
+            new() { Name = "Design Reference", Value = item.DesignReference }
+        };
+
+        if (!string.IsNullOrWhiteSpace(designFileUrl))
+        {
+            properties.Add(new() { Name = "Design File", Value = designFileUrl });
+        }
+
+        return properties;
     }
 
     public async Task CancelOrderAsync(long shopifyOrderId)

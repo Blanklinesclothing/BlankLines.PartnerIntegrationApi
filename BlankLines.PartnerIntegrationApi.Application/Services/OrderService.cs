@@ -82,7 +82,9 @@ public class OrderService(
                 Id = Guid.NewGuid(),
                 PartnerSku = item.PartnerSku,
                 BaseSku = partnerProduct.BaseSku,
-                DesignReference = partnerProduct.DesignReference,
+                DesignReference = !string.IsNullOrWhiteSpace(item.DesignReference)
+                    ? item.DesignReference
+                    : partnerProduct.DesignReference,
                 ShopifyVariantId = partnerProduct.ShopifyVariantId,
                 Quantity = item.Quantity
             });
@@ -228,6 +230,7 @@ public class OrderService(
             Items = order.Items.Select(i => new OrderItemResponseDto
             {
                 PartnerSku = i.PartnerSku,
+                DesignReference = i.DesignReference,
                 Quantity = i.Quantity
             }).ToList()
         };

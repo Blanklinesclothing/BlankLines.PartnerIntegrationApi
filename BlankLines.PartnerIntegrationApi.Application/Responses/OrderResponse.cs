@@ -19,5 +19,6 @@ public class OrderResponse
 public class OrderItemResponseDto
 {
     public required string PartnerSku { get; set; }
+    public required string DesignReference { get; set; }
     public int Quantity { get; set; }
 }

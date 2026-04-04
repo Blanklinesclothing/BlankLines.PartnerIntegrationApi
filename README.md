@@ -227,23 +227,21 @@ The project runs as a single Docker image. The environment is controlled entirel
 
 | Git branch | Railway service | `ASPNETCORE_ENVIRONMENT` |
 |---|---|---|
-| `main` | Staging | `Staging` |
-| `production` | Production | `Production` |
+| `main` | Sandbox | `Sandbox` |
+| `main` | Production | `Production` |
 
-Each Railway service watches its branch and auto-deploys on every push.
+Both Railway services watch `main`. The environment is determined entirely by the `ASPNETCORE_ENVIRONMENT` variable set on each service.
+
+Each Railway service auto-deploys on every push to `main`.
 
 ### Deployment flow
 
 ```
-feature branch
-      |
-      |  PR to main (CI must pass, 1 approval required)
-      v
-    main  --------------------> Railway Staging (auto-deploy)
-      |
-      |  PR to production (CI must pass, source must be main)
-      v
- production  ----------------> Railway Production (auto-deploy)
+      main
+        |
+        |-- Railway Sandbox service  (ASPNETCORE_ENVIRONMENT=Sandbox)
+        |
+        |-- Railway Production service  (ASPNETCORE_ENVIRONMENT=Production)
 ```
 
 ### Environments
@@ -251,7 +249,7 @@ feature branch
 | Environment | `ASPNETCORE_ENVIRONMENT` | Seeder runs | EF SQL logging |
 |---|---|---|---|
 | Production | `Production` | No | Off |
-| Staging | `Staging` | Yes (test partners + products) | On |
+| Sandbox | `Sandbox` | Yes (test partners + products) | On |
 
 ### Production service - environment variables
 
@@ -270,18 +268,18 @@ feature branch
 | `R2__PublicUrlBase` | Public base URL for uploaded files |
 | `R2__UploadFolder` | `partner-designs` |
 
-### Staging service - environment variables
+### Sandbox service - environment variables
 
 Same variables as production, with these differences:
 
-| Variable | Staging value |
+| Variable | Sandbox value |
 |---|---|
-| `ASPNETCORE_ENVIRONMENT` | `Staging` |
-| `ConnectionStrings__DefaultConnection` | Points to the staging Postgres plugin |
+| `ASPNETCORE_ENVIRONMENT` | `Sandbox` |
+| `ConnectionStrings__DefaultConnection` | Points to the sandbox Postgres plugin |
 | `Admin__AdminKey` | A different key from production |
-| `R2__UploadFolder` | `partner-designs-staging` |
+| `R2__UploadFolder` | `partner-designs-sandbox` |
 
-> Staging can share the same Shopify store and R2 bucket as production - the upload folder separates the files and `partnerOrderId` values will differ. If you want full isolation, use a separate Shopify store.
+> Sandbox can share the same Shopify store and R2 bucket as production - the upload folder separates the files and `partnerOrderId` values will differ. If you want full isolation, use a Shopify development store.
 
 ### PostgreSQL connection string (Railway variable reference syntax)
 
@@ -296,55 +294,19 @@ Host=${{Postgres.PGHOST}};Port=${{Postgres.PGPORT}};Database=${{Postgres.PGDATAB
 1. In your Railway project click **New Service - GitHub Repo**
 2. Select this repository
 3. Railway will detect the `Dockerfile` automatically
-4. Set the **branch** the service watches (`main` for staging, `production` for production)
+4. Set the **branch** the service watches (`main` for both services)
 5. Add a **Postgres** plugin to the service
 6. Set all environment variables listed above
-7. Deploy - the app migrates the database and (for Staging) seeds test data on first startup
+7. Deploy - the app migrates the database and (for Sandbox) seeds test data on first startup
 
-### Staging test credentials (seeded automatically)
+### Sandbox test credentials (seeded automatically)
 
-When `ASPNETCORE_ENVIRONMENT=Staging`, the following test partners are seeded on first startup:
+When `ASPNETCORE_ENVIRONMENT=Sandbox`, the following test partners are seeded on first startup:
 
 | Partner | API Key |
 |---|---|
 | Test Partner 1 | `test-api-key-123` |
 | Test Partner 2 | `test-api-key-456` |
-
----
-
-## GitHub Branch Protection
-
-Two GitHub Actions workflows enforce the branching rules.
-
-### Workflows
-
-| File | Trigger | Purpose |
-|---|---|---|
-| `.github/workflows/ci.yml` | PR to `main` or `production`, push to `main` | Restore, Release build, pending migration check |
-| `.github/workflows/enforce-production-source.yml` | PR to `production` | Fails if source branch is not `main` |
-
-### Required status checks - configure in GitHub
-
-Go to **Settings - Branches** and configure two rulesets.
-
-**`main` ruleset**
-
-- Restrict deletions
-- Block force pushes
-- Require a pull request before merging (1 approval, dismiss stale reviews)
-- Require status checks to pass: `Build & Check`
-
-**`production` ruleset**
-
-- Restrict deletions
-- Restrict creations
-- Block force pushes
-- Require linear history
-- Require a pull request before merging (1 approval, dismiss stale reviews)
-- Restrict who can merge (owner only)
-- Require status checks to pass: `Build & Check`, `Source must be main`
-
-> Status checks only appear in the GitHub dropdown after the workflow has run at least once. Push the workflows to `main` first, open a test PR, then add the checks to the rulesets.
 
 ---
 

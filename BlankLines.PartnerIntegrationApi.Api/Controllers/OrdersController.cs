@@ -51,7 +51,7 @@ public class OrdersController : ControllerBase
     /// </remarks>
     /// <param name="partnerOrderId">Your unique order reference.</param>
     /// <param name="deliveryMethod"><c>Shipping</c> or <c>Pickup</c>.</param>
-    /// <param name="itemsJson">JSON array of order items: <c>[{"partnerSku":"SKU-001","quantity":1}]</c></param>
+    /// <param name="itemsJson">JSON array of order items: <c>[{"partnerSku":"SKU-001","quantity":1,"designReference":"Logo-White-LeftChest"}]</c>. <c>designReference</c> is optional — if omitted the value registered against the SKU is used.</param>
     /// <param name="customerJson">JSON object with customer details: firstName, lastName, email, phone (optional).</param>
     /// <param name="shippingAddressJson">JSON object with shipping address. Required when deliveryMethod is Shipping.</param>
     /// <param name="designFile">Optional design image. Accepted formats: JPEG, PNG, WebP, GIF.</param>
