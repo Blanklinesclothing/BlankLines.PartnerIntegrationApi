@@ -84,14 +84,12 @@ The database is migrated automatically on startup. In development, seed data is 
 
 The interactive reference for all partner-facing endpoints is at:
 
-| Environment | Scalar UI | OpenAPI spec |
+| Environment | Swagger UI | OpenAPI spec |
 |---|---|---|
-| Production | **https://api.blanklines.com/scalar/v1** | `https://api.blanklines.com/openapi/v1.json` |
-| Sandbox | **https://sandbox-api.blanklines.com/scalar/v1** | `https://sandbox-api.blanklines.com/openapi/v1.json` |
+| Production | **https://api.blanklines.com/swagger** | `https://api.blanklines.com/swagger/v1/swagger.json` |
+| Sandbox | **https://sandbox-api.blanklines.com/swagger** | `https://sandbox-api.blanklines.com/swagger/v1/swagger.json` |
 
-Available locally at `https://localhost:{port}/scalar/v1` when running in development.
-
-The raw OpenAPI spec is at `/openapi/v1.json`.
+Available locally at `https://localhost:{port}/swagger` when running in development.
 
 #### Browse BlankLines products (`/api/products`)
 
@@ -183,9 +181,9 @@ Import the OpenAPI spec directly into Postman - no file to maintain:
 1. Open Postman > **Import**
 2. Select **Link**
 3. Enter the spec URL for the environment you want:
-   - Production: `https://api.blanklines.com/openapi/v1.json`
-   - Sandbox: `https://sandbox-api.blanklines.com/openapi/v1.json`
-   - Local: `https://localhost:{port}/openapi/v1.json`
+   - Production: `https://api.blanklines.com/swagger/v1/swagger.json`
+   - Sandbox: `https://sandbox-api.blanklines.com/swagger/v1/swagger.json`
+   - Local: `https://localhost:{port}/swagger/v1/swagger.json`
 
 Postman generates the collection from the spec. Re-import whenever the API changes.
 
@@ -306,7 +304,6 @@ Each Railway service auto-deploys on every push to `main`.
 | Variable | Value |
 |---|---|
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
-| `ApiBaseUrl` | `https://api.blanklines.com` |
 | `ConnectionStrings__DefaultConnection` | See connection string format below |
 | `Admin__AdminKey` | Strong random string - your admin secret |
 | `Shopify__StoreUrl` | `https://your-store.myshopify.com` |
@@ -326,7 +323,6 @@ Same variables as production, with these differences:
 | Variable | Sandbox value |
 |---|---|
 | `ASPNETCORE_ENVIRONMENT` | `Sandbox` |
-| `ApiBaseUrl` | `https://sandbox-api.blanklines.com` |
 | `ConnectionStrings__DefaultConnection` | Points to the sandbox Postgres plugin |
 | `Admin__AdminKey` | A different key from production |
 | `R2__UploadFolder` | `sandbox-partner-designs` |
@@ -388,7 +384,7 @@ See [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 | Environment | API reference |
 |---|---|
-| Production | **https://api.blanklines.com/scalar/v1** |
-| Sandbox | **https://sandbox-api.blanklines.com/scalar/v1** |
+| Production | **https://api.blanklines.com/swagger** |
+| Sandbox | **https://sandbox-api.blanklines.com/swagger** |
 
 Integration support: [hello@blanklines.com](mailto:hello@blanklines.com)

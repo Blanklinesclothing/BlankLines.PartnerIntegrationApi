@@ -1,5 +1,4 @@
 using BlankLines.PartnerIntegrationApi.Api.Middleware;
-using BlankLines.PartnerIntegrationApi.Api.OpenApi;
 using BlankLines.PartnerIntegrationApi.Api.Options;
 using BlankLines.PartnerIntegrationApi.Application;
 using BlankLines.PartnerIntegrationApi.Infrastructure;
@@ -8,7 +7,6 @@ using BlankLines.PartnerIntegrationApi.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
-using Scalar.AspNetCore;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 
@@ -50,60 +48,52 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
-builder.Services.AddOpenApi(options =>
+var xmlFile = Path.Combine(AppContext.BaseDirectory,
+    $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml");
+
+builder.Services.AddSwaggerGen(options =>
 {
-    options.AddOperationTransformer<XmlDocumentationTransformer>();
-
-    options.AddDocumentTransformer((document, context, ct) =>
+    options.SwaggerDoc("v1", new OpenApiInfo
     {
-        document.Info = new OpenApiInfo
-        {
-            Title = "BlankLines Partner Integration API",
-            Version = "v1",
-            Description = """
-                The BlankLines Partner Integration API allows approved partners to submit and manage
-                fulfilment orders processed through the BlankLines Shopify store.
+        Title = "BlankLines Partner Integration API",
+        Version = "v1",
+        Description = """
+            The BlankLines Partner Integration API allows approved partners to submit and manage
+            fulfilment orders processed through the BlankLines Shopify store.
 
-                All `/api/*` endpoints require an `X-API-KEY` header. Contact hello@blanklines.com
-                to request credentials.
-                """,
-            Contact = new OpenApiContact
-            {
-                Name = "BlankLines",
-                Email = "hello@blanklines.com"
-            }
-        };
-
-        document.Components ??= new OpenApiComponents();
-        document.Components.SecuritySchemes["ApiKey"] = new OpenApiSecurityScheme
+            All `/api/*` endpoints require an `X-API-KEY` header. Contact hello@blanklines.com
+            to request credentials.
+            """,
+        Contact = new OpenApiContact
         {
-            Type = SecuritySchemeType.ApiKey,
-            In = ParameterLocation.Header,
-            Name = "X-API-KEY",
-            Description = "Your partner API key"
-        };
-
-        var securityRequirement = new OpenApiSecurityRequirement
-        {
-            {
-                new OpenApiSecurityScheme
-                {
-                    Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "ApiKey" }
-                },
-                Array.Empty<string>()
-            }
-        };
-
-        foreach (var path in document.Paths.Values)
-        {
-            foreach (var operation in path.Operations.Values)
-            {
-                operation.Security.Add(securityRequirement);
-            }
+            Name = "BlankLines",
+            Email = "hello@blanklines.com"
         }
-
-        return Task.CompletedTask;
     });
+
+    options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Header,
+        Name = "X-API-KEY",
+        Description = "Your partner API key"
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "ApiKey" }
+            },
+            Array.Empty<string>()
+        }
+    });
+
+    if (File.Exists(xmlFile))
+    {
+        options.IncludeXmlComments(xmlFile);
+    }
 });
 
 builder.Services.AddApplication();
@@ -115,25 +105,11 @@ var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-app.MapOpenApi();
-
-var apiBaseUrl = app.Configuration["ApiBaseUrl"];
-
-app.MapScalarApiReference(options =>
+app.UseSwagger();
+app.UseSwaggerUI(options =>
 {
-    options.Title = "BlankLines Partner API";
-    options.Theme = ScalarTheme.Purple;
-    options.DefaultHttpClient = new(ScalarTarget.Shell, ScalarClient.Curl);
-    options.AddApiKeyAuthentication("ApiKey", auth =>
-    {
-        auth.Name = "X-API-KEY";
-        auth.Description = "Your partner API key";
-    });
-
-    if (apiBaseUrl is not null)
-    {
-        options.Servers = [new ScalarServer(apiBaseUrl)];
-    }
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "BlankLines Partner API v1");
+    options.RoutePrefix = "swagger";
 });
 
 using var scope = app.Services.CreateScope();

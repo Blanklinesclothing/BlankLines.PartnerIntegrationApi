@@ -38,45 +38,41 @@ public class OrdersController : ControllerBase
     /// </summary>
     /// <remarks>
     /// Submits the order to the BlankLines Shopify store for fulfilment.
-    /// The request must be sent as <c>multipart/form-data</c>.
+    /// The request must be sent as **multipart/form-data**.
     ///
-    /// **Items** (<c>itemsJson</c>) — JSON array, at least one item required:
-    /// <code>
-    /// [{"partnerSku":"MY-SKU-001","quantity":2,"designReference":"Logo-White-LeftChest"}]
-    /// </code>
-    /// <c>designReference</c> is optional per item. When omitted, the value registered against the SKU is used.
+    /// **Items** (`itemsJson`) — JSON array, at least one item required:
     ///
-    /// **Customer** (<c>customerJson</c>) — JSON object:
-    /// <code>
-    /// {"firstName":"Jane","lastName":"Smith","email":"jane@example.com","phone":"+61400000000"}
-    /// </code>
-    /// <c>phone</c> is optional.
+    ///     [{"partnerSku":"MY-SKU-001","quantity":2,"designReference":"Logo-White-LeftChest"}]
     ///
-    /// **Shipping address** (<c>shippingAddressJson</c>) — required when <c>deliveryMethod</c> is <c>Shipping</c>:
-    /// <code>
-    /// {"address1":"42 Example St","address2":"Unit 3","city":"Melbourne","province":"VIC","country":"AU","zip":"3000","phone":"+61400000000"}
-    /// </code>
-    /// <c>address2</c> and <c>phone</c> are optional. <c>country</c> must be a 2-letter ISO code.
+    /// `designReference` is optional per item — falls back to the value registered on the SKU.
     ///
-    /// **File uploads** — all files are optional:
-    /// <list type="bullet">
-    /// <item><c>designFiles[]</c> — up to 5 design images. Accepted: JPEG, PNG, WebP, GIF. Max 10 MB each.</item>
-    /// <item><c>vectorFiles[]</c> — up to 5 vector files. Accepted: SVG only. Max 10 MB each.</item>
-    /// </list>
+    /// **Customer** (`customerJson`) — JSON object:
+    ///
+    ///     {"firstName":"Jane","lastName":"Smith","email":"jane@example.com","phone":"+61400000000"}
+    ///
+    /// `phone` is optional.
+    ///
+    /// **Shipping address** (`shippingAddressJson`) — required when `deliveryMethod` is `Shipping`:
+    ///
+    ///     {"address1":"42 Example St","address2":"Unit 3","city":"Melbourne","province":"VIC","country":"AU","zip":"3000"}
+    ///
+    /// `address2`, `province`, and `phone` are optional. `country` must be a 2-letter ISO code (e.g. `AU`, `US`, `GB`).
+    ///
+    /// **File uploads** — all optional:
+    /// - `designFiles[]` — up to 5 design images. Accepted: JPEG, PNG, WebP, GIF. Max 10 MB each.
+    /// - `vectorFiles[]` — up to 5 vector files. Accepted: SVG only. Max 10 MB each.
     ///
     /// **Validation rules:**
-    /// <list type="bullet">
-    /// <item>Each item must have a non-empty <c>partnerSku</c> and a <c>quantity</c> greater than zero.</item>
-    /// <item>Duplicate <c>partnerSku</c> values within the same order are not allowed — combine quantities into one line item.</item>
-    /// <item>Customer <c>email</c> must be a valid address containing <c>@</c>.</item>
-    /// <item>Live inventory is checked per item before the order is persisted. Insufficient stock returns <c>400</c>.</item>
-    /// </list>
+    /// - Each item must have a non-empty `partnerSku` and a `quantity` greater than zero.
+    /// - Duplicate `partnerSku` values within the same order are not allowed — combine quantities into one line item.
+    /// - Customer `email` must be a valid address containing `@`.
+    /// - Live inventory is checked per item before the order is persisted. Insufficient stock returns `400`.
     /// </remarks>
     /// <param name="partnerOrderId">Your unique order reference. Must not already exist for your account.</param>
-    /// <param name="deliveryMethod"><c>Shipping</c> or <c>Pickup</c>.</param>
-    /// <param name="itemsJson">JSON array of order items. Each item requires <c>partnerSku</c> and <c>quantity</c>. <c>designReference</c> is optional.</param>
-    /// <param name="customerJson">JSON object with <c>firstName</c>, <c>lastName</c>, <c>email</c> (required) and <c>phone</c> (optional).</param>
-    /// <param name="shippingAddressJson">JSON object with <c>address1</c>, <c>city</c>, <c>country</c> (ISO 2-letter), <c>zip</c> (required) and <c>address2</c>, <c>province</c>, <c>phone</c> (optional). Required when <c>deliveryMethod</c> is <c>Shipping</c>.</param>
+    /// <param name="deliveryMethod">`Shipping` or `Pickup`.</param>
+    /// <param name="itemsJson">JSON array of order items. Each item requires `partnerSku` and `quantity`. `designReference` is optional.</param>
+    /// <param name="customerJson">JSON object with `firstName`, `lastName`, `email` (required) and `phone` (optional).</param>
+    /// <param name="shippingAddressJson">JSON object with `address1`, `city`, `country` (ISO 2-letter), `zip` (required) and `address2`, `province`, `phone` (optional). Required when `deliveryMethod` is `Shipping`.</param>
     /// <param name="designFiles">Optional design image files (max 5). Accepted: JPEG, PNG, WebP, GIF. Max 10 MB each.</param>
     /// <param name="vectorFiles">Optional vector files (max 5). Accepted: SVG only. Max 10 MB each.</param>
     [HttpPost]
@@ -172,8 +168,8 @@ public class OrdersController : ControllerBase
     /// </summary>
     /// <remarks>
     /// Returns the full order record including status, customer details, line items, and any uploaded files.
-    /// Each entry in the <c>files</c> array includes a <c>viewUrl</c> — use
-    /// <c>GET /api/orders/{partnerOrderId}/files/{fileId}</c> to retrieve a fresh presigned download link.
+    /// Each entry in the `files` array includes a `viewUrl` — use
+    /// `GET /api/orders/{partnerOrderId}/files/{fileId}` to retrieve a fresh presigned download link.
     /// </remarks>
     /// <param name="partnerOrderId">The order ID you provided at creation.</param>
     [HttpGet("{partnerOrderId}")]
@@ -191,12 +187,12 @@ public class OrdersController : ControllerBase
     /// Get a download link for a file attached to an order.
     /// </summary>
     /// <remarks>
-    /// Returns a <c>302</c> redirect to a presigned R2 URL valid for <b>1 hour</b>.
-    /// File IDs are found in the <c>files</c> array on the order response.
+    /// Returns a `302` redirect to a presigned R2 URL valid for **1 hour**.
+    /// File IDs are found in the `files` array on the order response.
     /// Following the redirect opens the file directly in the browser or downloads it.
     /// </remarks>
     /// <param name="partnerOrderId">The order ID you provided at creation.</param>
-    /// <param name="fileId">The file ID from the <c>files</c> array on the order response.</param>
+    /// <param name="fileId">The file ID from the `files` array on the order response.</param>
     [HttpGet("{partnerOrderId}/files/{fileId:guid}")]
     [ProducesResponseType(StatusCodes.Status302Found)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -213,14 +209,14 @@ public class OrdersController : ControllerBase
     /// </summary>
     /// <remarks>
     /// Cancels the order in both the BlankLines system and Shopify.
-    /// Orders can only be cancelled within <b>24 hours</b> of submission.
+    /// Orders can only be cancelled within **24 hours** of submission.
     ///
     /// Request body:
-    /// <code>
-    /// {"partnerOrderId":"YOUR-ORDER-REF"}
-    /// </code>
+    ///
+    ///     {"partnerOrderId":"YOUR-ORDER-REF"}
+    ///
     /// </remarks>
-    /// <param name="request">Object containing the <c>partnerOrderId</c> to cancel.</param>
+    /// <param name="request">Object containing the `partnerOrderId` to cancel.</param>
     [HttpPost("cancel")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

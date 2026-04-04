@@ -18,9 +18,9 @@ public class ProductsController(IShopifyApiService shopifyService) : ControllerB
     /// </summary>
     /// <remarks>
     /// Returns all active product variants from the BlankLines Shopify store.
-    /// Use the <c>sku</c> field as <c>baseSku</c> when registering a partner product
-    /// via <c>POST /api/partner-products</c>.
-    /// <c>inventoryQuantity</c> reflects live stock at the time of the request.
+    /// Use the `sku` field as `baseSku` when registering a partner product
+    /// via `POST /api/partner-products`.
+    /// `inventoryQuantity` reflects live stock at the time of the request.
     /// </remarks>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<ProductDto>), StatusCodes.Status200OK)]
