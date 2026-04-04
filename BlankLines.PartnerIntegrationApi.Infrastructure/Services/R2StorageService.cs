@@ -18,14 +18,12 @@ public class R2StorageService : IStorageService
         _client = CreateClient();
     }
 
-    public async Task<string> UploadDesignAsync(string partnerOrderId, Stream fileStream, string contentType, string fileExtension)
+    public async Task<string> UploadFileAsync(string objectKey, Stream fileStream, string contentType)
     {
-        var key = $"{_options.UploadFolder}/{partnerOrderId}{fileExtension}";
-
         var request = new PutObjectRequest
         {
             BucketName = _options.BucketName,
-            Key = key,
+            Key = objectKey,
             InputStream = fileStream,
             ContentType = contentType,
             DisablePayloadSigning = true
@@ -33,7 +31,21 @@ public class R2StorageService : IStorageService
 
         await _client.PutObjectAsync(request);
 
-        return $"{_options.PublicUrlBase.TrimEnd('/')}/{key}";
+        return objectKey;
+    }
+
+    public Task<string> GeneratePresignedUrlAsync(string objectKey, TimeSpan expiry)
+    {
+        var request = new GetPreSignedUrlRequest
+        {
+            BucketName = _options.BucketName,
+            Key = objectKey,
+            Expires = DateTime.UtcNow.Add(expiry),
+            Verb = HttpVerb.GET
+        };
+
+        var url = _client.GetPreSignedURL(request);
+        return Task.FromResult(url);
     }
 
     private AmazonS3Client CreateClient()
@@ -49,3 +61,4 @@ public class R2StorageService : IStorageService
         return new AmazonS3Client(credentials, config);
     }
 }
+

@@ -6,6 +6,16 @@ namespace BlankLines.PartnerIntegrationApi.Application.Validators;
 
 public class CreateOrderRequestValidator : IRequestValidator<CreateOrderRequest>
 {
+    private const int MaxFilesPerCollection = 5;
+    private const long MaxFileSizeBytes = 10 * 1024 * 1024; // 10 MB
+
+    private static readonly HashSet<string> AllowedImageTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg", "image/png", "image/webp", "image/gif"
+    };
+
+    private const string AllowedVectorType = "image/svg+xml";
+
     public void Validate(CreateOrderRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.PartnerOrderId))
@@ -24,6 +34,33 @@ public class CreateOrderRequestValidator : IRequestValidator<CreateOrderRequest>
         if (request.ShippingAddress != null)
         {
             ValidateShippingAddress(request.ShippingAddress);
+        }
+
+        ValidateFiles(request.DesignFiles, "Design", AllowedImageTypes);
+        ValidateFiles(request.VectorFiles, "Vector", new HashSet<string>(StringComparer.OrdinalIgnoreCase) { AllowedVectorType });
+    }
+
+    private static void ValidateFiles(List<UploadedFileDto> files, string label, HashSet<string> allowedTypes)
+    {
+        if (files.Count > MaxFilesPerCollection)
+        {
+            throw new InvalidOperationException($"A maximum of {MaxFilesPerCollection} {label.ToLower()} files can be uploaded per order.");
+        }
+
+        foreach (var file in files)
+        {
+            if (!allowedTypes.Contains(file.ContentType))
+            {
+                var allowed = string.Join(", ", allowedTypes);
+                throw new InvalidOperationException(
+                    $"{label} file '{file.FileName}' has an unsupported type '{file.ContentType}'. Allowed: {allowed}.");
+            }
+
+            if (file.SizeBytes > MaxFileSizeBytes)
+            {
+                throw new InvalidOperationException(
+                    $"{label} file '{file.FileName}' exceeds the 10 MB size limit ({file.SizeBytes / 1024 / 1024} MB).");
+            }
         }
     }
 
@@ -98,3 +135,4 @@ public class CreateOrderRequestValidator : IRequestValidator<CreateOrderRequest>
         }
     }
 }
+

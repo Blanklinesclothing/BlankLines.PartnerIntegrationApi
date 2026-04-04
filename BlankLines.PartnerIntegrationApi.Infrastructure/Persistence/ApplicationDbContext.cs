@@ -16,6 +16,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<PartnerProduct> PartnerProducts => Set<PartnerProduct>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+    public DbSet<OrderFile> OrderFiles => Set<OrderFile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

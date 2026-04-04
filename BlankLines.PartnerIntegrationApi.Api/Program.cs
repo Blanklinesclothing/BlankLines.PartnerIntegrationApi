@@ -21,10 +21,10 @@ builder.Services.AddControllers()
     });
 builder.Services.AddEndpointsApiExplorer();
 
-// Limit multipart uploads to 10 MB
+// Up to 10 files (5 design + 5 vector) at 10 MB each = 110 MB ceiling
 builder.Services.Configure<FormOptions>(o =>
 {
-    o.MultipartBodyLengthLimit = 10 * 1024 * 1024;
+    o.MultipartBodyLengthLimit = 110 * 1024 * 1024;
 });
 
 // Rate limiting - 10 requests per minute per partner (keyed by API key header)

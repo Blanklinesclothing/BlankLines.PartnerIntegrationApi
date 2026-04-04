@@ -65,8 +65,10 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.ShippingPhone)
             .HasMaxLength(50);
 
-        builder.Property(o => o.DesignFileUrl)
-            .HasMaxLength(500);
+        builder.HasMany(o => o.Files)
+            .WithOne()
+            .HasForeignKey(f => f.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasMany(o => o.Items)
             .WithOne()

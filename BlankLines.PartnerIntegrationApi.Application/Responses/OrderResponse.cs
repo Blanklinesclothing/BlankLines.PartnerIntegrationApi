@@ -12,7 +12,7 @@ public class OrderResponse
     public DateTime CreatedAt { get; set; }
     public required CustomerDto Customer { get; set; }
     public ShippingAddressDto? ShippingAddress { get; set; }
-    public string? DesignFileUrl { get; set; }
+    public List<OrderFileDto> Files { get; set; } = [];
     public required List<OrderItemResponseDto> Items { get; set; }
 }
 

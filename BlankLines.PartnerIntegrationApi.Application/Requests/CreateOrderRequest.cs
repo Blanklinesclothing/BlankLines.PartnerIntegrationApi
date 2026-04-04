@@ -10,5 +10,6 @@ public class CreateOrderRequest
     public required List<OrderItemDto> Items { get; set; }
     public required CustomerDto Customer { get; set; }
     public ShippingAddressDto? ShippingAddress { get; set; }
-    public DesignFileDto? DesignFile { get; set; }
+    public List<UploadedFileDto> DesignFiles { get; set; } = [];
+    public List<UploadedFileDto> VectorFiles { get; set; } = [];
 }

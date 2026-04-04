@@ -9,5 +9,6 @@ public interface IApplicationDbContext
     DbSet<PartnerProduct> PartnerProducts { get; }
     DbSet<Order> Orders { get; }
     DbSet<OrderItem> OrderItems { get; }
+    DbSet<OrderFile> OrderFiles { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

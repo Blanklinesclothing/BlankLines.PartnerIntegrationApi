@@ -174,7 +174,7 @@ public class ShopifyApiService : IShopifyApiService
             {
                 VariantId = item.ShopifyVariantId,
                 Quantity = item.Quantity,
-                Properties = BuildLineItemProperties(item, order.DesignFileUrl)
+                Properties = BuildLineItemProperties(item, order.Files)
             }).ToList(),
             Customer = new Customer
             {
@@ -210,7 +210,9 @@ public class ShopifyApiService : IShopifyApiService
         return createdOrder.Id.Value.ToString();
     }
 
-    private static List<LineItemProperty> BuildLineItemProperties(Domain.Entities.OrderItem item, string? designFileUrl)
+    private static List<LineItemProperty> BuildLineItemProperties(
+        Domain.Entities.OrderItem item,
+        ICollection<Domain.Entities.OrderFile> files)
     {
         var properties = new List<LineItemProperty>
         {
@@ -218,9 +220,19 @@ public class ShopifyApiService : IShopifyApiService
             new() { Name = "Design Reference", Value = item.DesignReference }
         };
 
-        if (!string.IsNullOrWhiteSpace(designFileUrl))
+        var designFiles = files.Where(f => f.FileType == Domain.Enums.OrderFileType.DesignImage).ToList();
+        var vectorFiles = files.Where(f => f.FileType == Domain.Enums.OrderFileType.Vector).ToList();
+
+        for (var i = 0; i < designFiles.Count; i++)
         {
-            properties.Add(new() { Name = "Design File", Value = designFileUrl });
+            var label = designFiles.Count == 1 ? "Design File" : $"Design File {i + 1}";
+            properties.Add(new() { Name = label, Value = designFiles[i].ObjectKey });
+        }
+
+        for (var i = 0; i < vectorFiles.Count; i++)
+        {
+            var label = vectorFiles.Count == 1 ? "Vector File" : $"Vector File {i + 1}";
+            properties.Add(new() { Name = label, Value = vectorFiles[i].ObjectKey });
         }
 
         return properties;

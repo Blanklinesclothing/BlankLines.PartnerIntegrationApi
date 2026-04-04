@@ -42,7 +42,7 @@ public class OrderService(
 
         await PersistOrderAsync(order);
 
-        await UploadDesignFileAsync(order, request.DesignFile);
+        await UploadOrderFilesAsync(order, request.DesignFiles, request.VectorFiles);
 
         await SubmitToShopifyAsync(order, request.PartnerOrderId);
 
@@ -152,27 +152,48 @@ public class OrderService(
         _logger.LogInformation("Order {PartnerOrderId} created for partner {PartnerId}", order.PartnerOrderId, order.PartnerId);
     }
 
-    private async Task UploadDesignFileAsync(Order order, DesignFileDto? designFile)
+    private async Task UploadOrderFilesAsync(
+        Order order,
+        List<UploadedFileDto> designFiles,
+        List<UploadedFileDto> vectorFiles)
     {
-        if (designFile == null)
+        var allFiles = designFiles
+            .Select(f => (File: f, FileType: OrderFileType.DesignImage))
+            .Concat(vectorFiles.Select(f => (File: f, FileType: OrderFileType.Vector)));
+
+        foreach (var (file, fileType) in allFiles)
         {
-            return;
+            try
+            {
+                var objectKey = $"{order.PartnerOrderId}/{Guid.NewGuid()}{file.Extension}";
+                await _storageService.UploadFileAsync(objectKey, file.Content, file.ContentType);
+
+                order.Files.Add(new OrderFile
+                {
+                    Id = Guid.NewGuid(),
+                    OrderId = order.Id,
+                    FileType = fileType,
+                    FileName = file.FileName,
+                    ObjectKey = objectKey,
+                    ContentType = file.ContentType,
+                    UploadedAt = DateTime.UtcNow
+                });
+
+                _logger.LogInformation(
+                    "Uploaded {FileType} file '{FileName}' for order {PartnerOrderId}",
+                    fileType, file.FileName, order.PartnerOrderId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to upload {FileType} file '{FileName}' for order {PartnerOrderId} - continuing",
+                    fileType, file.FileName, order.PartnerOrderId);
+            }
         }
 
-        try
+        if (order.Files.Count > 0)
         {
-            order.DesignFileUrl = await _storageService.UploadDesignAsync(
-                order.PartnerOrderId,
-                designFile.Content,
-                designFile.ContentType,
-                designFile.Extension);
-
             await _context.SaveChangesAsync();
-            _logger.LogInformation("Design file uploaded for order {PartnerOrderId}", order.PartnerOrderId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Design file upload failed for order {PartnerOrderId} - order saved, Shopify submission will proceed without design URL", order.PartnerOrderId);
         }
     }
 
@@ -197,8 +218,22 @@ public class OrderService(
     {
         var order = await _context.Orders
             .Include(o => o.Items)
+            .Include(o => o.Files)
             .FirstOrDefaultAsync(o => o.PartnerId == partnerId && o.PartnerOrderId == partnerOrderId)
             ?? throw new KeyNotFoundException($"Order '{partnerOrderId}' not found");
+
+        var fileViewUrls = new List<OrderFileDto>();
+        foreach (var file in order.Files)
+        {
+            var presignedUrl = await _storageService.GeneratePresignedUrlAsync(file.ObjectKey, TimeSpan.FromHours(1));
+            fileViewUrls.Add(new OrderFileDto
+            {
+                Id = file.Id,
+                FileType = file.FileType,
+                FileName = file.FileName,
+                ViewUrl = presignedUrl
+            });
+        }
 
         return new OrderResponse
         {
@@ -226,7 +261,7 @@ public class OrderService(
                 Zip = order.ShippingZip!,
                 Phone = order.ShippingPhone
             } : null,
-            DesignFileUrl = order.DesignFileUrl,
+            Files = fileViewUrls,
             Items = order.Items.Select(i => new OrderItemResponseDto
             {
                 PartnerSku = i.PartnerSku,
@@ -234,6 +269,19 @@ public class OrderService(
                 Quantity = i.Quantity
             }).ToList()
         };
+    }
+
+    public async Task<string> GetFilePresignedUrlAsync(Guid partnerId, string partnerOrderId, Guid fileId)
+    {
+        var order = await _context.Orders
+            .Include(o => o.Files)
+            .FirstOrDefaultAsync(o => o.PartnerId == partnerId && o.PartnerOrderId == partnerOrderId)
+            ?? throw new KeyNotFoundException($"Order '{partnerOrderId}' not found");
+
+        var file = order.Files.FirstOrDefault(f => f.Id == fileId)
+            ?? throw new KeyNotFoundException($"File '{fileId}' not found on order '{partnerOrderId}'");
+
+        return await _storageService.GeneratePresignedUrlAsync(file.ObjectKey, TimeSpan.FromHours(1));
     }
 
     public async Task CancelOrderAsync(Guid partnerId, CancelOrderRequest request)
