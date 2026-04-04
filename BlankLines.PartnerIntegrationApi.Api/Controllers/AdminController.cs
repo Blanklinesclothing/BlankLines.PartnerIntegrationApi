@@ -9,24 +9,26 @@ namespace BlankLines.PartnerIntegrationApi.Api.Controllers;
 [ApiExplorerSettings(IgnoreApi = true)]
 public class AdminController : ControllerBase
 {
-    private readonly IPartnerService _partnerService;
+    private readonly IPartnerAdminService _partnerAdminService;
+    private readonly IPartnerProductService _partnerProductService;
 
-    public AdminController(IPartnerService partnerService)
+    public AdminController(IPartnerAdminService partnerAdminService, IPartnerProductService partnerProductService)
     {
-        _partnerService = partnerService;
+        _partnerAdminService = partnerAdminService;
+        _partnerProductService = partnerProductService;
     }
 
     [HttpGet("orders")]
     public async Task<IActionResult> GetOrders()
     {
-        var orders = await _partnerService.GetAllOrdersAsync();
+        var orders = await _partnerAdminService.GetAllOrdersAsync();
         return Ok(orders);
     }
 
     [HttpPost("partners")]
     public async Task<IActionResult> CreatePartner([FromBody] CreatePartnerRequest request)
     {
-        var (partner, plainTextKey) = await _partnerService.CreatePartnerAsync(request.Name);
+        var (partner, plainTextKey) = await _partnerAdminService.CreatePartnerAsync(request.Name);
 
         return Created(string.Empty, new
         {
@@ -41,35 +43,35 @@ public class AdminController : ControllerBase
     [HttpGet("partners")]
     public async Task<IActionResult> GetPartners()
     {
-        var partners = await _partnerService.GetAllPartnersAsync();
+        var partners = await _partnerAdminService.GetAllPartnersAsync();
         return Ok(partners);
     }
 
     [HttpDelete("partners/{partnerId:guid}")]
     public async Task<IActionResult> RevokePartner(Guid partnerId)
     {
-        await _partnerService.RevokePartnerAsync(partnerId);
+        await _partnerAdminService.RevokePartnerAsync(partnerId);
         return NoContent();
     }
 
     [HttpGet("partners/{partnerId:guid}/products")]
     public async Task<IActionResult> GetPartnerProducts(Guid partnerId)
     {
-        var products = await _partnerService.GetPartnerProductsAsync(partnerId);
+        var products = await _partnerProductService.GetPartnerProductsAsync(partnerId);
         return Ok(products);
     }
 
     [HttpPost("partners/{partnerId:guid}/products")]
     public async Task<IActionResult> CreatePartnerProduct(Guid partnerId, [FromBody] CreatePartnerProductRequest request)
     {
-        var product = await _partnerService.CreatePartnerProductAsync(partnerId, request);
+        var product = await _partnerProductService.CreatePartnerProductAsync(partnerId, request);
         return Created(string.Empty, product);
     }
 
     [HttpDelete("partners/{partnerId:guid}/products/{productId:guid}")]
     public async Task<IActionResult> DeletePartnerProduct(Guid partnerId, Guid productId)
     {
-        await _partnerService.DeletePartnerProductAsync(partnerId, productId);
+        await _partnerProductService.DeletePartnerProductAsync(partnerId, productId);
         return NoContent();
     }
 }

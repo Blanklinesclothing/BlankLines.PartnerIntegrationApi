@@ -18,7 +18,7 @@ public static class DatabaseSeeder
         {
             Id = Guid.NewGuid(),
             Name = "Test Partner 1",
-            ApiKey = PartnerService.HashApiKey("test-api-key-123"),
+            ApiKey = PartnerAdminService.HashApiKey("test-api-key-123"),
             CreatedAt = DateTime.UtcNow
         };
 
@@ -26,7 +26,7 @@ public static class DatabaseSeeder
         {
             Id = Guid.NewGuid(),
             Name = "Test Partner 2",
-            ApiKey = PartnerService.HashApiKey("test-api-key-456"),
+            ApiKey = PartnerAdminService.HashApiKey("test-api-key-456"),
             CreatedAt = DateTime.UtcNow
         };
 

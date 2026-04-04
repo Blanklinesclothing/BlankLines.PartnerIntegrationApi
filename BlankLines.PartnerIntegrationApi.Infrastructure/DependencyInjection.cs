@@ -5,6 +5,8 @@ using BlankLines.PartnerIntegrationApi.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using ShopifySharp;
 using ShopifySharp.Extensions.DependencyInjection;
 
@@ -12,7 +14,10 @@ namespace BlankLines.PartnerIntegrationApi.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
@@ -24,7 +29,11 @@ public static class DependencyInjection
 
         services.AddShopifySharp<LeakyBucketExecutionPolicy>();
 
-        services.Configure<R2Options>(configuration.GetSection("R2"));
+        services.AddOptions<R2Options>()
+            .Bind(configuration.GetSection("R2"))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         services.AddSingleton<IStorageService, R2StorageService>();
 
         services.AddScoped<IShopifyApiService, ShopifyApiService>();

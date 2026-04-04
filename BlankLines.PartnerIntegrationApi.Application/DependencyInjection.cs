@@ -11,7 +11,8 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddScoped<IOrderService, OrderService>();
-        services.AddScoped<IPartnerService, PartnerService>();
+        services.AddScoped<IPartnerAdminService, PartnerAdminService>();
+        services.AddScoped<IPartnerProductService, PartnerProductService>();
 
         services.AddScoped<IRequestValidator<CreateOrderRequest>, CreateOrderRequestValidator>();
         services.AddScoped<IRequestValidator<CancelOrderRequest>, CancelOrderRequestValidator>();

@@ -4,11 +4,29 @@ namespace BlankLines.PartnerIntegrationApi.Domain.Entities;
 
 public class OrderFile
 {
-    public Guid Id { get; set; }
-    public Guid OrderId { get; set; }
-    public OrderFileType FileType { get; set; }
-    public required string FileName { get; set; }
-    public required string ObjectKey { get; set; }
-    public required string ContentType { get; set; }
-    public DateTime UploadedAt { get; set; }
+    private OrderFile() { }
+
+    public Guid Id { get; private set; }
+    public Guid OrderId { get; private set; }
+    public OrderFileType FileType { get; private set; }
+    public string FileName { get; private set; } = default!;
+    public string ObjectKey { get; private set; } = default!;
+    public string ContentType { get; private set; } = default!;
+    public DateTime UploadedAt { get; private set; }
+
+    public static OrderFile Create(
+        OrderFileType fileType,
+        string fileName,
+        string objectKey,
+        string contentType) => new()
+    {
+        Id = Guid.NewGuid(),
+        FileType = fileType,
+        FileName = fileName,
+        ObjectKey = objectKey,
+        ContentType = contentType,
+        UploadedAt = DateTime.UtcNow
+    };
+
+    internal void SetOrderId(Guid orderId) => OrderId = orderId;
 }

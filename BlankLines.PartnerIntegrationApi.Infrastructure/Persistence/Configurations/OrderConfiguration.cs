@@ -65,6 +65,12 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.ShippingPhone)
             .HasMaxLength(50);
 
+        builder.HasOne(o => o.Partner)
+            .WithMany()
+            .HasForeignKey(o => o.PartnerId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasMany(o => o.Files)
             .WithOne()
             .HasForeignKey(f => f.OrderId)

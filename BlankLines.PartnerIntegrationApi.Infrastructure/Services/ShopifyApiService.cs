@@ -1,5 +1,6 @@
 using BlankLines.PartnerIntegrationApi.Application.DTOs;
 using BlankLines.PartnerIntegrationApi.Application.Interfaces;
+using BlankLines.PartnerIntegrationApi.Domain.Enums;
 using BlankLines.PartnerIntegrationApi.Infrastructure.Options;
 using Microsoft.Extensions.Options;
 using ShopifySharp;
@@ -164,39 +165,39 @@ public class ShopifyApiService : IShopifyApiService
         }
     }
 
-    public async Task<string> CreateOrderAsync(Domain.Entities.Order order)
+    public async Task<string> CreateOrderAsync(ShopifyOrderRequest request)
     {
         var orderService = _orderServiceFactory.Create(Credentials);
 
         var shopifyOrder = new Order
         {
-            LineItems = order.Items.Select(item => new LineItem
+            LineItems = request.LineItems.Select(item => new LineItem
             {
                 VariantId = item.ShopifyVariantId,
                 Quantity = item.Quantity,
-                Properties = BuildLineItemProperties(item, order.Files)
+                Properties = BuildLineItemProperties(item)
             }).ToList(),
             Customer = new Customer
             {
-                FirstName = order.CustomerFirstName,
-                LastName = order.CustomerLastName,
-                Email = order.CustomerEmail,
-                Phone = order.CustomerPhone
+                FirstName = request.CustomerFirstName,
+                LastName = request.CustomerLastName,
+                Email = request.CustomerEmail,
+                Phone = request.CustomerPhone
             },
-            ShippingAddress = order.ShippingAddress1 != null ? new Address
+            ShippingAddress = request.ShippingAddress1 != null ? new Address
             {
-                FirstName = order.CustomerFirstName,
-                LastName = order.CustomerLastName,
-                Address1 = order.ShippingAddress1,
-                Address2 = order.ShippingAddress2,
-                City = order.ShippingCity,
-                Province = order.ShippingProvince,
-                Country = order.ShippingCountry,
-                Zip = order.ShippingZip,
-                Phone = order.ShippingPhone
+                FirstName = request.CustomerFirstName,
+                LastName = request.CustomerLastName,
+                Address1 = request.ShippingAddress1,
+                Address2 = request.ShippingAddress2,
+                City = request.ShippingCity,
+                Province = request.ShippingProvince,
+                Country = request.ShippingCountry,
+                Zip = request.ShippingZip,
+                Phone = request.ShippingPhone
             } : null,
-            Note = $"Partner Order ID: {order.PartnerOrderId}",
-            Tags = order.DeliveryMethod.ToString(),
+            Note = $"Partner Order ID: {request.PartnerOrderId}",
+            Tags = request.DeliveryMethod.ToString(),
             FinancialStatus = "paid"
         };
 
@@ -210,9 +211,7 @@ public class ShopifyApiService : IShopifyApiService
         return createdOrder.Id.Value.ToString();
     }
 
-    private static List<LineItemProperty> BuildLineItemProperties(
-        Domain.Entities.OrderItem item,
-        ICollection<Domain.Entities.OrderFile> files)
+    private static List<LineItemProperty> BuildLineItemProperties(ShopifyOrderLineItem item)
     {
         var properties = new List<LineItemProperty>
         {
@@ -220,8 +219,8 @@ public class ShopifyApiService : IShopifyApiService
             new() { Name = "Design Reference", Value = item.DesignReference }
         };
 
-        var designFiles = files.Where(f => f.FileType == Domain.Enums.OrderFileType.DesignImage).ToList();
-        var vectorFiles = files.Where(f => f.FileType == Domain.Enums.OrderFileType.Vector).ToList();
+        var designFiles = item.Files.Where(f => f.FileType == OrderFileType.DesignImage).ToList();
+        var vectorFiles = item.Files.Where(f => f.FileType == OrderFileType.Vector).ToList();
 
         for (var i = 0; i < designFiles.Count; i++)
         {

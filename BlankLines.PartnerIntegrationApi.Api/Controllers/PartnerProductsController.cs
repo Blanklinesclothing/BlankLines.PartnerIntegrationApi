@@ -10,9 +10,9 @@ namespace BlankLines.PartnerIntegrationApi.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/partner-products")]
-public class PartnerProductsController(IPartnerService partnerService) : ControllerBase
+public class PartnerProductsController(IPartnerProductService partnerProductService) : ControllerBase
 {
-    private readonly IPartnerService _partnerService = partnerService;
+    private readonly IPartnerProductService _partnerProductService = partnerProductService;
 
     /// <summary>
     /// List all products registered under your partner account.
@@ -23,7 +23,7 @@ public class PartnerProductsController(IPartnerService partnerService) : Control
     public async Task<IActionResult> GetProducts()
     {
         var partnerId = GetPartnerId();
-        var products = await _partnerService.GetPartnerProductsAsync(partnerId);
+        var products = await _partnerProductService.GetPartnerProductsAsync(partnerId);
         return Ok(products);
     }
 
@@ -43,7 +43,7 @@ public class PartnerProductsController(IPartnerService partnerService) : Control
     public async Task<IActionResult> CreateProduct([FromBody] CreatePartnerProductRequest request)
     {
         var partnerId = GetPartnerId();
-        var product = await _partnerService.CreatePartnerProductAsync(partnerId, request);
+        var product = await _partnerProductService.CreatePartnerProductAsync(partnerId, request);
         return CreatedAtAction(nameof(GetProducts), product);
     }
 

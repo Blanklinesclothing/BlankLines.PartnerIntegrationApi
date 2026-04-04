@@ -1,5 +1,4 @@
 using BlankLines.PartnerIntegrationApi.Application.DTOs;
-using BlankLines.PartnerIntegrationApi.Domain.Entities;
 
 namespace BlankLines.PartnerIntegrationApi.Application.Interfaces;
 
@@ -8,6 +7,6 @@ public interface IShopifyApiService
     Task<IEnumerable<ProductDto>> GetProductsAsync();
     Task<long?> ValidateBaseSkuAsync(string sku);
     Task<int> GetInventoryQuantityAsync(long variantId);
-    Task<string> CreateOrderAsync(Order order);
+    Task<string> CreateOrderAsync(ShopifyOrderRequest request);
     Task CancelOrderAsync(long shopifyOrderId);
 }

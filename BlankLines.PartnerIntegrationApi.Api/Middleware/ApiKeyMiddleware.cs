@@ -12,7 +12,7 @@ public class ApiKeyMiddleware
         _next = next;
     }
 
-    public async Task InvokeAsync(HttpContext context, IPartnerService partnerService)
+    public async Task InvokeAsync(HttpContext context, IPartnerAdminService partnerAdminService)
     {
         if (!context.Request.Headers.TryGetValue(ApiKeyHeaderName, out var apiKey) || string.IsNullOrWhiteSpace(apiKey))
         {
@@ -21,7 +21,7 @@ public class ApiKeyMiddleware
             return;
         }
 
-        var partner = await partnerService.GetPartnerByApiKeyAsync(apiKey!);
+        var partner = await partnerAdminService.GetPartnerByApiKeyAsync(apiKey!);
 
         if (partner == null)
         {

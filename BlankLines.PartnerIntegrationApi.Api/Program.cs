@@ -107,7 +107,7 @@ builder.Services.AddOpenApi(options =>
 });
 
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 builder.Services.Configure<AdminOptions>(builder.Configuration.GetSection("Admin"));
 builder.Services.AddHealthChecks();
 

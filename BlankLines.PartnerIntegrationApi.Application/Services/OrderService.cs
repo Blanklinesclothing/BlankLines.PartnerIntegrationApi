@@ -77,17 +77,14 @@ public class OrderService(
                 await CheckInventoryAsync(partnerProduct.ShopifyVariantId.Value, item.PartnerSku, item.Quantity);
             }
 
-            orderItems.Add(new OrderItem
-            {
-                Id = Guid.NewGuid(),
-                PartnerSku = item.PartnerSku,
-                BaseSku = partnerProduct.BaseSku,
-                DesignReference = !string.IsNullOrWhiteSpace(item.DesignReference)
+            orderItems.Add(OrderItem.Create(
+                item.PartnerSku,
+                partnerProduct.BaseSku,
+                !string.IsNullOrWhiteSpace(item.DesignReference)
                     ? item.DesignReference
                     : partnerProduct.DesignReference,
-                ShopifyVariantId = partnerProduct.ShopifyVariantId,
-                Quantity = item.Quantity
-            });
+                partnerProduct.ShopifyVariantId,
+                item.Quantity));
         }
 
         return orderItems;
@@ -115,34 +112,22 @@ public class OrderService(
 
     private static Order BuildOrder(Guid partnerId, CreateOrderRequest request, List<OrderItem> orderItems)
     {
-        var order = new Order
-        {
-            Id = Guid.NewGuid(),
-            PartnerId = partnerId,
-            PartnerOrderId = request.PartnerOrderId,
-            Status = OrderStatus.Received,
-            DeliveryMethod = request.DeliveryMethod,
-            CreatedAt = DateTime.UtcNow,
-            CustomerFirstName = request.Customer.FirstName,
-            CustomerLastName = request.Customer.LastName,
-            CustomerEmail = request.Customer.Email,
-            CustomerPhone = request.Customer.Phone,
-            ShippingAddress1 = request.ShippingAddress?.Address1,
-            ShippingAddress2 = request.ShippingAddress?.Address2,
-            ShippingCity = request.ShippingAddress?.City,
-            ShippingProvince = request.ShippingAddress?.Province,
-            ShippingCountry = request.ShippingAddress?.Country,
-            ShippingZip = request.ShippingAddress?.Zip,
-            ShippingPhone = request.ShippingAddress?.Phone,
-            Items = orderItems
-        };
-
-        foreach (var item in orderItems)
-        {
-            item.OrderId = order.Id;
-        }
-
-        return order;
+        return Order.Create(
+            partnerId,
+            request.PartnerOrderId,
+            request.DeliveryMethod,
+            request.Customer.FirstName,
+            request.Customer.LastName,
+            request.Customer.Email,
+            request.Customer.Phone,
+            request.ShippingAddress?.Address1,
+            request.ShippingAddress?.Address2,
+            request.ShippingAddress?.City,
+            request.ShippingAddress?.Province,
+            request.ShippingAddress?.Country,
+            request.ShippingAddress?.Zip,
+            request.ShippingAddress?.Phone,
+            orderItems);
     }
 
     private async Task PersistOrderAsync(Order order)
@@ -165,19 +150,10 @@ public class OrderService(
         {
             try
             {
-                var objectKey = $"{order.PartnerOrderId}/{Guid.NewGuid()}{file.Extension}";
+                var objectKey = $"orders/{order.Id}/{Guid.NewGuid()}{file.Extension}";
                 await _storageService.UploadFileAsync(objectKey, file.Content, file.ContentType);
 
-                order.Files.Add(new OrderFile
-                {
-                    Id = Guid.NewGuid(),
-                    OrderId = order.Id,
-                    FileType = fileType,
-                    FileName = file.FileName,
-                    ObjectKey = objectKey,
-                    ContentType = file.ContentType,
-                    UploadedAt = DateTime.UtcNow
-                });
+                order.AttachFile(OrderFile.Create(fileType, file.FileName, objectKey, file.ContentType));
 
                 _logger.LogInformation(
                     "Uploaded {FileType} file '{FileName}' for order {PartnerOrderId}",
@@ -201,9 +177,37 @@ public class OrderService(
     {
         try
         {
-            var shopifyOrderId = await _shopifyService.CreateOrderAsync(order);
-            order.ShopifyOrderId = shopifyOrderId;
-            order.Status = OrderStatus.Processing;
+            var shopifyRequest = new ShopifyOrderRequest
+            {
+                PartnerOrderId = order.PartnerOrderId,
+                DeliveryMethod = order.DeliveryMethod,
+                CustomerFirstName = order.CustomerFirstName,
+                CustomerLastName = order.CustomerLastName,
+                CustomerEmail = order.CustomerEmail,
+                CustomerPhone = order.CustomerPhone,
+                ShippingAddress1 = order.ShippingAddress1,
+                ShippingAddress2 = order.ShippingAddress2,
+                ShippingCity = order.ShippingCity,
+                ShippingProvince = order.ShippingProvince,
+                ShippingCountry = order.ShippingCountry,
+                ShippingZip = order.ShippingZip,
+                ShippingPhone = order.ShippingPhone,
+                LineItems = order.Items.Select(i => new ShopifyOrderLineItem
+                {
+                    PartnerSku = i.PartnerSku,
+                    DesignReference = i.DesignReference,
+                    ShopifyVariantId = i.ShopifyVariantId,
+                    Quantity = i.Quantity,
+                    Files = order.Files.Select(f => new ShopifyOrderFile
+                    {
+                        FileType = f.FileType,
+                        ObjectKey = f.ObjectKey
+                    }).ToList()
+                }).ToList()
+            };
+
+            var shopifyOrderId = await _shopifyService.CreateOrderAsync(shopifyRequest);
+            order.MarkAsProcessing(shopifyOrderId);
             await _context.SaveChangesAsync();
             _logger.LogInformation("Order {PartnerOrderId} submitted to Shopify as {ShopifyOrderId}", order.PartnerOrderId, shopifyOrderId);
         }
@@ -296,16 +300,6 @@ public class OrderService(
             throw new KeyNotFoundException($"Order '{request.PartnerOrderId}' not found");
         }
 
-        if (order.Status == OrderStatus.Cancelled)
-        {
-            throw new InvalidOperationException($"Order '{request.PartnerOrderId}' is already cancelled.");
-        }
-
-        if ((DateTime.UtcNow - order.CreatedAt).TotalHours > 24)
-        {
-            throw new InvalidOperationException("Order cannot be cancelled after 24 hours");
-        }
-
         if (order.ShopifyOrderId != null)
         {
             if (!long.TryParse(order.ShopifyOrderId, out var shopifyOrderId))
@@ -325,7 +319,7 @@ public class OrderService(
             }
         }
 
-        order.Status = OrderStatus.Cancelled;
+        order.Cancel();
         await _context.SaveChangesAsync();
         _logger.LogInformation("Order {PartnerOrderId} cancelled by partner {PartnerId}", request.PartnerOrderId, partnerId);
     }
