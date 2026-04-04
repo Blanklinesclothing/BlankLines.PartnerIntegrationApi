@@ -17,6 +17,11 @@ public class PartnerProductsController(IPartnerProductService partnerProductServ
     /// <summary>
     /// List all products registered under your partner account.
     /// </summary>
+    /// <remarks>
+    /// Returns your registered SKU mappings. Use <c>partnerSku</c> when placing orders.
+    /// <c>baseSku</c> is the BlankLines product SKU. <c>shopifyVariantId</c> is resolved automatically
+    /// at registration time and is used internally when creating Shopify orders.
+    /// </remarks>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<PartnerProductDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -31,10 +36,20 @@ public class PartnerProductsController(IPartnerProductService partnerProductServ
     /// Register a new product under your partner account.
     /// </summary>
     /// <remarks>
-    /// The <c>baseSku</c> must exactly match an active product variant in the BlankLines Shopify store.
-    /// The <c>partnerSku</c> is your own internal SKU used when placing orders. Must be unique per partner account.
-    /// The <c>designReference</c> identifies the design to apply to this product.
-    /// All three fields are required and must not be blank.
+    /// Maps one of your internal SKUs to a BlankLines product variant.
+    ///
+    /// Request body:
+    /// <code>
+    /// {"partnerSku":"MY-SKU-001","baseSku":"BL-TEE-WHITE-M","designReference":"spring-2025-logo"}
+    /// </code>
+    ///
+    /// <list type="bullet">
+    /// <item><c>partnerSku</c> — your internal identifier, used when placing orders. Must be unique per account.</item>
+    /// <item><c>baseSku</c> — must exactly match an active variant SKU in the BlankLines Shopify store. Returns <c>400</c> if not found.</item>
+    /// <item><c>designReference</c> — default design identifier applied to orders for this SKU. Can be overridden per order line item.</item>
+    /// </list>
+    ///
+    /// <c>shopifyVariantId</c> is resolved automatically from <c>baseSku</c> and returned in the response.
     /// </remarks>
     [HttpPost]
     [ProducesResponseType(typeof(PartnerProductDto), StatusCodes.Status201Created)]

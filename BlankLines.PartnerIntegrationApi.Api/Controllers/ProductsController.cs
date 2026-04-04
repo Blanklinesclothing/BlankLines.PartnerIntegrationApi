@@ -14,8 +14,14 @@ public class ProductsController(IShopifyApiService shopifyService) : ControllerB
     private readonly IShopifyApiService _shopifyService = shopifyService;
 
     /// <summary>
-    /// Returns all products available to order from the BlankLines Shopify store.
+    /// List all products available to order from BlankLines.
     /// </summary>
+    /// <remarks>
+    /// Returns all active product variants from the BlankLines Shopify store.
+    /// Use the <c>sku</c> field as <c>baseSku</c> when registering a partner product
+    /// via <c>POST /api/partner-products</c>.
+    /// <c>inventoryQuantity</c> reflects live stock at the time of the request.
+    /// </remarks>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<ProductDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

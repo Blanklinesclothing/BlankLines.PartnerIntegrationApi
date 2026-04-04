@@ -107,7 +107,7 @@ builder.Services.AddOpenApi(options =>
 });
 
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
+builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.Configure<AdminOptions>(builder.Configuration.GetSection("Admin"));
 builder.Services.AddHealthChecks();
 
@@ -117,11 +117,7 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.MapOpenApi();
 
-var apiBaseUrl = app.Environment.IsEnvironment("Sandbox")
-    ? "https://sandbox-api.blanklines.com"
-    : app.Environment.IsProduction()
-        ? "https://api.blanklines.com"
-        : null;
+var apiBaseUrl = app.Configuration["ApiBaseUrl"];
 
 app.MapScalarApiReference(options =>
 {
